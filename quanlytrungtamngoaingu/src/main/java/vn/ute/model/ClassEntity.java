@@ -14,11 +14,11 @@ public class ClassEntity extends BaseEntity {
     @Column(nullable = false, length = 150)
     private String className;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "course_id", nullable = false)
     private Course course;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "teacher_id")
     private Teacher teacher;
 
@@ -28,7 +28,7 @@ public class ClassEntity extends BaseEntity {
     private LocalDate endDate;
     private int maxStudent;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "room_id")
     private Room room;
 

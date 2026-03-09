@@ -62,7 +62,9 @@ public Optional<UserAccount> authenticate(String username, String password) thro
         TransactionManager.executeInTransaction((EntityManager em) -> {
             UserAccount acc = accountRepo.findById(em, accountId)
                     .orElseThrow(() -> new Exception("Không tìm thấy tài khoản!"));
-            acc.setPasswordHash(newPassword);
+            // Hash password mới
+            String hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt());
+            acc.setPasswordHash(hashedPassword);
             accountRepo.update(em, acc);
             return null;
         });

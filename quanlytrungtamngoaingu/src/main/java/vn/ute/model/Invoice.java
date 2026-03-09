@@ -12,7 +12,7 @@ public class Invoice extends BaseEntity {
     @Column(name = "invoice_id")
     private long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "student_id", nullable = false)
     private Student student;
 

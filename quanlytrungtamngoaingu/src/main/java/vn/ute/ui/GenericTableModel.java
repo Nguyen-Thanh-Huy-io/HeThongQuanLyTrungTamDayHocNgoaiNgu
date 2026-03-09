@@ -20,6 +20,13 @@ public class GenericTableModel<T> extends AbstractTableModel {
         fireTableDataChanged();
     }
 
+    /**
+     * Return the object at a given row.  Helpful for edit/delete actions.
+     */
+    public T getRow(int rowIndex) {
+        return data.get(rowIndex);
+    }
+
     @Override public int getRowCount() { return data.size(); }
     @Override public int getColumnCount() { return columnNames.length; }
     @Override public String getColumnName(int col) { return columnNames[col]; }

@@ -2,18 +2,24 @@ package vn.ute;
 
 import vn.ute.service.ServiceManager;
 import vn.ute.ui.LoginForm;
+import vn.ute.ui.UIUtils;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
 public class App {
     public static void main(String[] args) {
-        // 1. Khởi tạo Giao diện (theo cách của thầy)
-        // Nếu bạn chưa có lớp UI, hãy dùng: UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        // 1. Khởi tạo giao diện và theme chung
+        // chúng ta dùng FlatLaf để có phong cách hiện đại, có thể đổi sang FlatDarkLaf nếu muốn
+        UIUtils.initLookAndFeel();
+
+        // nếu vì lý do nào đó FlatLaf không load được thì fallback về native L&amp;F
         try {
-            javax.swing.UIManager.setLookAndFeel(javax.swing.UIManager.getSystemLookAndFeelClassName());
+            if (UIManager.getLookAndFeel() == null) {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        
 
         // 2. Khởi tạo ServiceManager (Container chứa 13 services & TransactionManager)
         // ServiceManager bên trong sẽ khởi tạo các JpaRepository tương ứng 

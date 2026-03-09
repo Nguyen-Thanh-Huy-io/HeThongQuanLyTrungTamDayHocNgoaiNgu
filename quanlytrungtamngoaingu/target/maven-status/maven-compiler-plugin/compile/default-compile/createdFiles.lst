@@ -1,3 +1,4 @@
+vn\ute\ui\TeacherTableModel.class
 vn\ute\model\Enrollment$EnrollStatus.class
 vn\ute\service\Service.class
 vn\ute\repo\UserAccountRepository.class
@@ -6,17 +7,21 @@ vn\ute\repo\StudentRepository.class
 vn\ute\service\impl\ClassServiceImpl.class
 vn\ute\service\impl\PaymentServiceImpl.class
 vn\ute\service\TeacherService.class
+vn\ute\ui\CourseTableModel.class
 vn\ute\model\Attendance.class
 vn\ute\service\impl\InvoiceServiceImpl.class
 vn\ute\service\InvoiceService.class
 vn\ute\service\impl\ScheduleServiceImpl.class
+vn\ute\ui\EnrollmentTableModel.class
 vn\ute\repo\ResultRepository.class
 vn\ute\repo\jpa\JpaStudentRepository.class
+vn\ute\ui\PaymentTableModel.class
 vn\ute\repo\Repository.class
 vn\ute\service\impl\ResultServiceImpl.class
 vn\ute\ui\LoginForm.class
 vn\ute\repo\InvoiceRepository.class
 vn\ute\service\impl\CourseServiceImpl.class
+vn\ute\ui\ClassTableModel.class
 vn\ute\repo\jpa\JpaInvoiceRepository.class
 vn\ute\db\Jpa.class
 vn\ute\service\ClassService.class
@@ -33,6 +38,7 @@ vn\ute\repo\jpa\JpaScheduleRepository.class
 vn\ute\service\EnrollmentService.class
 vn\ute\service\AttendanceService.class
 vn\ute\ui\MainFrame.class
+vn\ute\ui\SessionManager.class
 vn\ute\repo\TeacherRepository.class
 vn\ute\model\Student$Status.class
 vn\ute\model\Course$DurationUnit.class
@@ -44,6 +50,7 @@ vn\ute\repo\CourseRepository.class
 vn\ute\model\Course$Status.class
 vn\ute\model\ClassEntity$ClassStatus.class
 vn\ute\service\impl\EnrollmentServiceImpl.class
+vn\ute\ui\RoomTableModel.class
 vn\ute\model\Course.class
 vn\ute\repo\jpa\JpaStaffRepository.class
 vn\ute\model\Staff$StaffRole.class
@@ -57,6 +64,7 @@ vn\ute\model\Staff$Status.class
 vn\ute\service\impl\TeacherServiceImpl.class
 vn\ute\model\ClassEntity.class
 vn\ute\repo\jpa\AbstractJpaRepository.class
+vn\ute\ui\GenericEditDialog.class
 vn\ute\ui\GenericTableModel.class
 vn\ute\service\PaymentService.class
 vn\ute\repo\jpa\JpaResultRepository.class
@@ -69,11 +77,14 @@ vn\ute\model\Schedule.class
 vn\ute\repo\StaffRepository.class
 vn\ute\ui\GenericPanel.class
 vn\ute\service\ResultService.class
+vn\ute\ui\ScheduleTableModel.class
 vn\ute\model\Room.class
 vn\ute\service\impl\StaffServiceImpl.class
 vn\ute\model\Student.class
+vn\ute\ui\ResultTableModel.class
 vn\ute\repo\ClassRepository.class
 vn\ute\repo\jpa\JpaTeacherRepository.class
+vn\ute\ui\StaffTableModel.class
 vn\ute\service\RoomService.class
 vn\ute\repo\jpa\JpaAttendanceRepository.class
 vn\ute\model\Invoice.class
@@ -81,6 +92,7 @@ vn\ute\model\Teacher$Status.class
 vn\ute\ui\BasePanel.class
 vn\ute\repo\PaymentRepository.class
 vn\ute\model\UserAccount.class
+vn\ute\ui\InvoiceTableModel.class
 vn\ute\model\Teacher.class
 vn\ute\service\StudentService.class
 vn\ute\model\Student$Gender.class
@@ -97,5 +109,9 @@ vn\ute\repo\jpa\JpaCourseRepository.class
 vn\ute\model\Course$Level.class
 vn\ute\repo\ScheduleRepository.class
 vn\ute\db\TransactionManager.class
+vn\ute\ui\AttendanceTableModel.class
 vn\ute\db\JpaWork.class
+vn\ute\ui\UIUtils.class
 vn\ute\stream\AcademicStreamQueries.class
+vn\ute\ui\StudentTableModel.class
+vn\ute\ui\MappedTableModel.class
