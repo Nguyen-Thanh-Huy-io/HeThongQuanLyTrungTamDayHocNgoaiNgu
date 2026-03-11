@@ -18,7 +18,7 @@ public class JpaScheduleRepository extends AbstractJpaRepository<Schedule, Long>
 
     @Override
     public List<Schedule> findByClassId(EntityManager em,Long classId) {
-        return em.createQuery("SELECT s FROM Schedule s WHERE s.clazz.id = :classId", Schedule.class)
+        return em.createQuery("SELECT s FROM Schedule s WHERE s.classEntity.id = :classId", Schedule.class)
                 .setParameter("classId", classId)
                 .getResultList();
     }

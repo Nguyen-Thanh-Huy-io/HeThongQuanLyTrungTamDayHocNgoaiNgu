@@ -1,5 +1,7 @@
 package vn.ute.ui;
 
+import net.miginfocom.swing.MigLayout;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -23,61 +25,43 @@ public class LoginForm extends JFrame {
         this.serviceManager = serviceManager;
         
         setTitle("HỆ THỐNG QUẢN LÝ TRUNG TÂM - ĐĂNG NHẬP");
-        setSize(450, 320);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLocationRelativeTo(null); // Hiển thị giữa màn hình
         setResizable(false);
         
         initUI();
+        pack();
+        setMinimumSize(new Dimension(520, 360));
+        setLocationRelativeTo(null); // Hiển thị giữa màn hình
     }
 
     private void initUI() {
-        // Sử dụng JPanel làm container chính với padding và màu nền sáng
-        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
-        mainPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
-        mainPanel.setBackground(UIUtils.SECONDARY_COLOR);
+        JPanel mainPanel = new JPanel(new MigLayout("fill,insets 18", "[grow]", "[grow]"));
+        mainPanel.setBackground(new Color(244, 247, 251));
 
-        // Header (có thể thêm logo nếu muốn)
-        JPanel header = new JPanel(new BorderLayout());
-        header.setBackground(Color.WHITE);
-        JLabel lblTitle = new JLabel("ĐĂNG NHẬP", SwingConstants.CENTER);
+        JPanel card = new JPanel(new MigLayout("fillx,insets 22,gap 10", "[grow]", "[]12[]12[]18[]"));
+        card.setBackground(Color.WHITE);
+        card.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(225, 231, 239)),
+            new EmptyBorder(10, 10, 10, 10)
+        ));
+
+        JLabel lblTitle = new JLabel("Dang Nhap", SwingConstants.CENTER);
         lblTitle.setFont(UIUtils.DEFAULT_FONT.deriveFont(Font.BOLD, 24));
-        lblTitle.setForeground(UIUtils.PRIMARY_COLOR);
-        header.add(lblTitle, BorderLayout.CENTER);
-        // placeholder cho logo ở trái
-        // JLabel lblLogo = new JLabel(new ImageIcon(getClass().getResource("/icons/logo16.png")));
-        // header.add(lblLogo, BorderLayout.WEST);
-        mainPanel.add(header, BorderLayout.NORTH);
+        lblTitle.setForeground(new Color(32, 83, 117));
+        card.add(lblTitle, "growx, wrap");
 
-        // Form nhập liệu sử dụng GridBagLayout
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBackground(Color.WHITE);
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(5, 5, 5, 5);
+        JPanel formPanel = new JPanel(new MigLayout("fillx,insets 0,gapx 10,gapy 10", "[120!][grow]", "[][]"));
+        formPanel.setOpaque(false);
+        formPanel.add(new JLabel("Ten dang nhap:"));
+        txtUsername = new JTextField(22);
+        formPanel.add(txtUsername, "growx, wrap");
+        formPanel.add(new JLabel("Mat khau:"));
+        txtPassword = new JPasswordField(22);
+        formPanel.add(txtPassword, "growx");
+        card.add(formPanel, "growx, wrap");
 
-        // Username
-        gbc.gridx = 0; gbc.gridy = 0;
-        formPanel.add(new JLabel("Tên đăng nhập:"), gbc);
-        
-        gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1.0;
-        txtUsername = new JTextField(15);
-        formPanel.add(txtUsername, gbc);
-
-        // Password
-        gbc.gridx = 0; gbc.gridy = 1;
-        formPanel.add(new JLabel("Mật khẩu:"), gbc);
-        
-        gbc.gridx = 1; gbc.gridy = 1;
-        txtPassword = new JPasswordField(15);
-        formPanel.add(txtPassword, gbc);
-
-        mainPanel.add(formPanel, BorderLayout.CENTER);
-
-        // Button Panel
-        JPanel btnPanel = new JPanel();
-        btnPanel.setBackground(Color.WHITE);
-        // dùng UIUtils để tạo nút có style nhất quán
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        btnPanel.setOpaque(false);
         btnLogin = UIUtils.createPrimaryButton("Đăng nhập");
 
         // Xử lý sự kiện đăng nhập
@@ -87,40 +71,65 @@ public class LoginForm extends JFrame {
         getRootPane().setDefaultButton(btnLogin);
 
         btnPanel.add(btnLogin);
-        mainPanel.add(btnPanel, BorderLayout.SOUTH);
+        card.add(btnPanel, "growx, wrap");
 
-        add(mainPanel);
+        JLabel hint = new JLabel("Tai khoan duoc cap boi quan tri vien", SwingConstants.CENTER);
+        hint.setForeground(new Color(115, 125, 138));
+        card.add(hint, "growx");
+
+        mainPanel.add(card, "wmin 470, hmin 300, center");
+        add(mainPanel, BorderLayout.CENTER);
     }
 
     private void handleLogin(ActionEvent e) {
-    String username = txtUsername.getText().trim();
-    String password = new String(txtPassword.getPassword());
+        String username = txtUsername.getText().trim();
+        String password = new String(txtPassword.getPassword());
 
-    if (username.isEmpty() || password.isEmpty()) {
-        JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ thông tin!");
-        return;
-    }
+        if (username.isEmpty() || password.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ thông tin!");
+            return;
+        }
 
-    try {
-        // GỌI THẲNG HÀM AUTHENTICATE TỪ SERVICE
-        // Hàm này đã bao gồm: Tìm user, check active, và check BCrypt
-        Optional<UserAccount> userOpt = serviceManager.getUserAccountService().authenticate(username, password);
+        try {
+            Optional<UserAccount> userOpt = serviceManager.getUserAccountService().authenticate(username, password);
 
-        if (userOpt.isPresent()) {
+            if (userOpt.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Đăng nhập thất bại.", "Lỗi đăng nhập", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
             UserAccount user = userOpt.get();
-            
-            // SET USER VÀO SESSION MANAGER ĐỂ MAINFRAME BIẾT ROLE
             sessionManager = SessionManager.getInstance();
             sessionManager.setCurrentUser(user);
 
-            JOptionPane.showMessageDialog(this, "Đăng nhập thành công!");
-            new MainFrame(serviceManager).setVisible(true);
-            this.dispose();
-        } 
-    } catch (Exception ex) {
-        // Hiển thị đúng thông báo lỗi từ Service (ví dụ: "Mật khẩu không chính xác")
-        JOptionPane.showMessageDialog(this, ex.getMessage(), "Lỗi đăng nhập", JOptionPane.ERROR_MESSAGE);
-        ex.printStackTrace();
+            btnLogin.setEnabled(false);
+            setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+            setVisible(false);
+
+            SwingUtilities.invokeLater(() -> openMainFrame());
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Lỗi đăng nhập", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
+        }
     }
-}
+
+    private void openMainFrame() {
+        try {
+            MainFrame mainFrame = new MainFrame(serviceManager);
+            mainFrame.setVisible(true);
+            dispose();
+        } catch (Exception ex) {
+            setCursor(Cursor.getDefaultCursor());
+            btnLogin.setEnabled(true);
+            setVisible(true);
+            SessionManager.getInstance().logout();
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Không thể mở giao diện sau đăng nhập: " + ex.getMessage(),
+                    "Lỗi khởi tạo giao diện",
+                    JOptionPane.ERROR_MESSAGE
+            );
+            ex.printStackTrace();
+        }
+    }
 }

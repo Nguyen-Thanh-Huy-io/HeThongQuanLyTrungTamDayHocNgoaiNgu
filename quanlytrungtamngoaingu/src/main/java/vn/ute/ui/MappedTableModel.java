@@ -80,7 +80,6 @@ public class MappedTableModel<T> extends GenericTableModel<T> {
 
         for (String part : parts) {
             if (current == null) {
-                System.out.println("[DEBUG MappedTableModel] Field path: " + fieldPath + " - Current is null at: " + part);
                 return null;
             }
 
@@ -88,14 +87,11 @@ public class MappedTableModel<T> extends GenericTableModel<T> {
                 java.lang.reflect.Field field = current.getClass().getDeclaredField(part);
                 field.setAccessible(true);
                 current = field.get(current);
-                System.out.println("[DEBUG MappedTableModel] Field: " + part + " -> " + current);
             } catch (NoSuchFieldException e) {
-                System.out.println("[DEBUG MappedTableModel] Field not found: " + part + " in class " + current.getClass().getName());
                 throw e;
             }
         }
 
-        System.out.println("[DEBUG MappedTableModel] Final value for " + fieldPath + ": " + current);
         return current;
     }
 

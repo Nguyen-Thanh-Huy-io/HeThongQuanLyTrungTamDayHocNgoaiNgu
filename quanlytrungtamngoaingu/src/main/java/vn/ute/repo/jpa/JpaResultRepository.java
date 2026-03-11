@@ -18,7 +18,7 @@ public class JpaResultRepository extends AbstractJpaRepository<Result, Long> imp
 
     @Override
     public List<Result> findByClassId(EntityManager em,Long classId) {
-        return em.createQuery("SELECT r FROM Result r WHERE r.clazz.id = :classId", Result.class)
+        return em.createQuery("SELECT r FROM Result r WHERE r.classEntity.id = :classId", Result.class)
                 .setParameter("classId", classId)
                 .getResultList();
     }
@@ -32,7 +32,7 @@ public class JpaResultRepository extends AbstractJpaRepository<Result, Long> imp
 
     @Override
     public Optional<Result> findByStudentAndClass(EntityManager em,Long studentId, Long classId) {
-        return em.createQuery("SELECT r FROM Result r WHERE r.student.id = :studentId AND r.clazz.id = :classId", Result.class)
+        return em.createQuery("SELECT r FROM Result r WHERE r.student.id = :studentId AND r.classEntity.id = :classId", Result.class)
                 .setParameter("studentId", studentId)
                 .setParameter("classId", classId)
                 .getResultStream().findFirst();

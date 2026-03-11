@@ -48,14 +48,14 @@ public class ServiceManager {
         this.teacherService = new TeacherServiceImpl(teacherRepo);
         this.courseService = new CourseServiceImpl(courseRepo);
         this.classService = new ClassServiceImpl(classRepo, roomRepo);
-        this.enrollmentService = new EnrollmentServiceImpl(enrollRepo, classRepo);
+        this.enrollmentService = new EnrollmentServiceImpl(enrollRepo, classRepo, studentRepo);
         this.invoiceService = new InvoiceServiceImpl(invoiceRepo);
         this.paymentService = new PaymentServiceImpl(paymentRepo, invoiceRepo);
         this.scheduleService = new ScheduleServiceImpl(scheduleRepo);
         this.attendanceService = new AttendanceServiceImpl(attendanceRepo);
         this.staffService = new StaffServiceImpl(staffRepo);
         this.userAccountService = new UserAccountServiceImpl(accountRepo);
-        this.resultService = new ResultServiceImpl(resultRepo);
+        this.resultService = new ResultServiceImpl(resultRepo, enrollRepo);
         this.roomService = new RoomServiceImpl(roomRepo);
     }
 

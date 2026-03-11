@@ -42,20 +42,32 @@ public Optional<UserAccount> authenticate(String username, String password) thro
             throw new Exception("Lỗi dữ liệu: Tài khoản chưa được thiết lập mật khẩu!");
         }
 
-        // So sánh mật khẩu người dùng nhập (thô) với mã băm trong Database
-        // Cần import org.mindrot.jbcrypt.BCrypt;
-        try {
-            if (!BCrypt.checkpw(password, storedHash)) {
-                throw new Exception("Mật khẩu không chính xác!");
+        boolean authenticated = false;
+        boolean isBcryptHash = isBcryptFormat(storedHash);
+
+        // Ưu tiên xác thực theo BCrypt nếu dữ liệu đã đúng chuẩn.
+        if (isBcryptHash) {
+            authenticated = BCrypt.checkpw(password, storedHash);
+        } else {
+            // Tương thích dữ liệu cũ: cho phép so sánh trực tiếp và tự nâng cấp lên BCrypt khi đúng mật khẩu.
+            authenticated = password.equals(storedHash);
+            if (authenticated) {
+                user.setPasswordHash(BCrypt.hashpw(password, BCrypt.gensalt()));
+                accountRepo.update(em, user);
             }
-        } catch (IllegalArgumentException e) {
-            // Trường hợp chuỗi trong DB không đúng định dạng BCrypt (ví dụ bạn lỡ lưu "123456" trực tiếp)
-            throw new Exception("Lỗi hệ thống: Định dạng mật khẩu trong cơ sở dữ liệu không hợp lệ!");
+        }
+
+        if (!authenticated) {
+            throw new Exception("Mật khẩu không chính xác!");
         }
 
         return Optional.of(user);
     });
 }
+
+    private boolean isBcryptFormat(String value) {
+        return value != null && value.matches("^\\$2[aby]\\$\\d{2}\\$.{53}$");
+    }
 
     @Override
     public void updatePassword(Long accountId, String newPassword) throws Exception {

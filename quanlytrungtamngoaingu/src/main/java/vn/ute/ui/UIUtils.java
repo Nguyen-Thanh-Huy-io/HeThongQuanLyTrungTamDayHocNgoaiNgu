@@ -1,5 +1,7 @@
 package vn.ute.ui;
 
+import com.formdev.flatlaf.FlatLightLaf;
+
 import javax.swing.*;
 import java.awt.*;
 
@@ -17,23 +19,30 @@ public class UIUtils {
      */
     public static void initLookAndFeel() {
         try {
-            // Nếu FlatLaf đã được thêm (tuỳ chọn) thì dùng nó, còn không thì dùng native
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            FlatLightLaf.setup();
         } catch (Exception e) {
             e.printStackTrace();
         }
 
         // một số override mặc định cho mọi component
+        UIManager.put("defaultFont", DEFAULT_FONT);
         UIManager.put("Button.font", DEFAULT_FONT);
         UIManager.put("Label.font", DEFAULT_FONT);
         UIManager.put("TextField.font", DEFAULT_FONT);
         UIManager.put("PasswordField.font", DEFAULT_FONT);
         UIManager.put("Table.font", DEFAULT_FONT);
+        UIManager.put("Table.rowHeight", 30);
+        UIManager.put("Table.showHorizontalLines", true);
+        UIManager.put("Table.showVerticalLines", false);
         UIManager.put("TabbedPane.font", DEFAULT_FONT.deriveFont(Font.BOLD));
+        UIManager.put("TabbedPane.tabHeight", 34);
         UIManager.put("Menu.font", DEFAULT_FONT);
         UIManager.put("MenuItem.font", DEFAULT_FONT);
         UIManager.put("ComboBox.font", DEFAULT_FONT);
         UIManager.put("TextArea.font", DEFAULT_FONT);
+        UIManager.put("Component.arc", 14);
+        UIManager.put("Button.arc", 18);
+        UIManager.put("TextComponent.arc", 12);
     }
 
     public static JButton createPrimaryButton(String text, Icon icon) {
@@ -67,6 +76,7 @@ public class UIUtils {
 
     public static void styleToolbar(JToolBar toolbar) {
         toolbar.setFloatable(false);
-        toolbar.setBackground(SECONDARY_COLOR);
+        toolbar.setBackground(new Color(248, 250, 252));
+        toolbar.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
     }
 }

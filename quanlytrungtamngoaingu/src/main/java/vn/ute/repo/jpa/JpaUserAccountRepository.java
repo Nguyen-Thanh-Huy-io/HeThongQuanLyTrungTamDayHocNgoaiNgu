@@ -17,7 +17,14 @@ public class JpaUserAccountRepository extends AbstractJpaRepository<UserAccount,
 
     @Override
     public Optional<UserAccount> findByUsername(EntityManager em,String username) {
-        return em.createQuery("SELECT u FROM UserAccount u WHERE u.username = :username", UserAccount.class)
+        return em.createQuery(
+                "SELECT u FROM UserAccount u " +
+                "LEFT JOIN FETCH u.teacher " +
+                "LEFT JOIN FETCH u.student " +
+                "LEFT JOIN FETCH u.staff " +
+                "WHERE u.username = :username",
+                UserAccount.class
+            )
                 .setParameter("username", username)
                 .getResultStream().findFirst();
     }

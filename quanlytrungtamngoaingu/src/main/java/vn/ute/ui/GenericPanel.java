@@ -1,8 +1,14 @@
 package vn.ute.ui;
 
+import vn.ute.db.TransactionManager;
+import vn.ute.model.Student;
+import vn.ute.model.Teacher;
+import vn.ute.service.ServiceManager;
+
 import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
 import java.awt.*;
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -64,6 +70,74 @@ public class GenericPanel<T> extends BasePanel<T> {
 
     @Override
     protected void onDelete() {
-        JOptionPane.showMessageDialog(this, "Chức năng xóa chưa được triển khai");
+        int row = table.getSelectedRow();
+        if (row < 0) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn một dòng để xóa.");
+            return;
+        }
+
+        @SuppressWarnings("unchecked")
+        T item = ((GenericTableModel<T>) tableModel).getRow(row);
+        Long id = extractEntityId(item);
+        if (id == null) {
+            JOptionPane.showMessageDialog(this, "Không xác định được ID để xóa.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "Bạn có chắc chắn muốn xóa bản ghi đã chọn?",
+                "Xác nhận xóa",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+
+        if (confirm != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        try {
+            deleteByType(id);
+            JOptionPane.showMessageDialog(this, "Xóa dữ liệu thành công!");
+            reloadData();
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Xóa dữ liệu thất bại: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private Long extractEntityId(T item) {
+        try {
+            Field idField = item.getClass().getDeclaredField("id");
+            idField.setAccessible(true);
+            Object value = idField.get(item);
+            if (value instanceof Number n) {
+                return n.longValue();
+            }
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void deleteByType(Long id) throws Exception {
+        if (entityType == Student.class) {
+            ServiceManager.getInstance().getStudentService().deleteStudent(id);
+            return;
+        }
+
+        TransactionManager.executeInTransaction(em -> {
+            if (entityType == Teacher.class) {
+                em.createQuery("DELETE FROM UserAccount u WHERE u.teacher.id = :id")
+                        .setParameter("id", id)
+                        .executeUpdate();
+            }
+
+            Object entity = em.find(entityType, id);
+            if (entity == null) {
+                throw new Exception("Không tìm thấy bản ghi cần xóa (ID=" + id + ").");
+            }
+            em.remove(entity);
+            return null;
+        });
     }
 }

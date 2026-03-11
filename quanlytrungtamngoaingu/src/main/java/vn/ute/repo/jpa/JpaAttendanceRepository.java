@@ -17,7 +17,7 @@ public class JpaAttendanceRepository extends AbstractJpaRepository<Attendance, L
 
     @Override
     public List<Attendance> findByClassIdAndDate(EntityManager em,Long classId, LocalDate date) {
-        return em.createQuery("SELECT a FROM Attendance a WHERE a.clazz.id = :classId AND a.attendDate = :date", Attendance.class)
+        return em.createQuery("SELECT a FROM Attendance a WHERE a.classEntity.id = :classId AND a.attendDate = :date", Attendance.class)
                 .setParameter("classId", classId)
                 .setParameter("date", date)
                 .getResultList();

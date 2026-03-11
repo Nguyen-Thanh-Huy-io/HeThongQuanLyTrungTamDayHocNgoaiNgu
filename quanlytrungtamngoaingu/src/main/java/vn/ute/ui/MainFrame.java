@@ -6,8 +6,17 @@ import vn.ute.model.*;
 import vn.ute.ui.SessionManager;
 
 import javax.swing.*;
-import java.awt.*;
-import java.util.*;
+import java.awt.BorderLayout;
+import java.awt.Font;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * MainFrame được tổ chức theo 4 nhóm nghiệp vụ:
@@ -49,54 +58,19 @@ public class MainFrame extends JFrame {
 
         // Nhóm 1: Đào tạo
         JTabbedPane eduTab = buildEducationTab();
-        mainTabs.addTab("📚 Đào tạo", eduTab);
-        System.out.println(">> Education group created with " + eduTab.getTabCount() + " tabs");
-
-        // Debug: Check if data is loaded
-        try {
-            var classService = sm.getClassService();
-            var classes = classService.findAll();
-            System.out.println(">> [DEBUG] Classes loaded: " + classes.size());
-            if (!classes.isEmpty()) {
-                var firstClass = classes.get(0);
-                System.out.println(">> [DEBUG] First class: " + firstClass.getClassName() +
-                    ", course: " + (firstClass.getCourse() != null ? firstClass.getCourse().getCourseName() : "NULL") +
-                    ", teacher: " + (firstClass.getTeacher() != null ? firstClass.getTeacher().getFullName() : "NULL") +
-                    ", room: " + (firstClass.getRoom() != null ? firstClass.getRoom().getRoomName() : "NULL"));
-            }
-        } catch (Exception e) {
-            System.out.println(">> [DEBUG] Error loading classes: " + e.getMessage());
-            e.printStackTrace();
-        }
+        mainTabs.addTab("Đào tạo", eduTab);
 
         // Nhóm 2: Vận hành
         JTabbedPane opsTab = buildOperationsTab();
-        mainTabs.addTab("⚙️ Vận hành", opsTab);
-        System.out.println(">> Operations group created with " + opsTab.getTabCount() + " tabs");
+        mainTabs.addTab("Vận hành", opsTab);
 
         // Nhóm 3: Tài chính
         JTabbedPane finTab = buildFinanceTab();
-        mainTabs.addTab("💰 Tài chính", finTab);
-        System.out.println(">> Finance group created with " + finTab.getTabCount() + " tabs");
+        mainTabs.addTab("Tài chính", finTab);
 
         // Nhóm 4: Hệ thống
         JTabbedPane sysTab = buildSystemTab();
-        mainTabs.addTab("⚡ Hệ thống", sysTab);
-        System.out.println(">> System group created with " + sysTab.getTabCount() + " tabs");
-
-        System.out.println(">> Main frame created with " + mainTabs.getTabCount() + " main groups");
-        System.out.println(">> Main tab names:");
-        for (int i = 0; i < mainTabs.getTabCount(); i++) {
-            System.out.println("  Main Tab " + i + ": " + mainTabs.getTitleAt(i));
-        }
-        mainTabs.setSelectedIndex(0); // Force select Education tab
-        System.out.println(">> Selected main tab: " + mainTabs.getSelectedIndex() + " (" + mainTabs.getTitleAt(mainTabs.getSelectedIndex()) + ")");
-
-        // Add change listener to track main tab switches
-        mainTabs.addChangeListener(e -> {
-            int selected = mainTabs.getSelectedIndex();
-            System.out.println(">> [MAIN TAB CHANGE] Switched to: " + selected + " (" + mainTabs.getTitleAt(selected) + ")");
-        });
+        mainTabs.addTab("Hệ thống", sysTab);
 
         setJMenuBar(createMenuBar());
         getContentPane().add(mainTabs, BorderLayout.CENTER);
@@ -110,100 +84,116 @@ public class MainFrame extends JFrame {
         tab.setTabLayoutPolicy(JTabbedPane.WRAP_TAB_LAYOUT); // Changed from SCROLL to WRAP
 
         try {
-            System.out.println("\n[DEBUG] Starting to build Course tab...");
             GenericPanel<Course> coursePanel = new GenericPanel<>(Course.class, new CourseTableModel(),
                 () -> {
                     try { return sm.getCourseService().findAll(); }
                     catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
                 });
-            System.out.println(">> CoursePanel created: " + coursePanel.getClass().getSimpleName());
             tab.addTab("Khóa học", coursePanel);
             panelRegistry.put("Course", coursePanel);
-            System.out.println("✓ Added Courses tab");
         } catch (Exception e) {
-            System.out.println("✗ FATAL Error adding Courses: " + e.getMessage());
             e.printStackTrace();
         }
 
         try {
-            System.out.println("\n[DEBUG] Starting to build Classes tab...");
             GenericPanel<ClassEntity> classPanel = new GenericPanel<>(ClassEntity.class, new ClassTableModel(),
                 () -> {
-                    try { return sm.getClassService().findAll(); }
+                    try {
+                        if (sessionManager.isTeacher()) {
+                            return loadClassesForCurrentTeacher();
+                        }
+                        return sm.getClassService().findAll();
+                    }
                     catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
                 });
             tab.addTab("Lớp học", classPanel);
             panelRegistry.put("ClassEntity", classPanel);
-            System.out.println("✓ Added Classes tab");
         } catch (Exception e) { 
-            System.out.println("✗ FATAL Error adding Classes: " + e.getMessage());
             e.printStackTrace(); 
         }
 
         try {
-            System.out.println("\n[DEBUG] Starting to build Enrollments tab...");
-            GenericPanel<Enrollment> enrollmentPanel = new GenericPanel<>(Enrollment.class, new EnrollmentTableModel(),
+            GenericPanel<Schedule> schedulePanel = new GenericPanel<>(Schedule.class, new ScheduleTableModel(),
                 () -> {
-                    try { return sm.getEnrollmentService().findAll(); }
+                    try {
+                        if (sessionManager.isStudent()) {
+                            return loadSchedulesForCurrentStudent();
+                        }
+                        if (sessionManager.isTeacher()) {
+                            return loadSchedulesForCurrentTeacher();
+                        }
+                        return sm.getScheduleService().findAll();
+                    }
+                    catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
+                });
+            tab.addTab("Lịch học", schedulePanel);
+            panelRegistry.put("Schedule", schedulePanel);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        try {
+            EnrollmentPanel enrollmentPanel = new EnrollmentPanel(sm, sessionManager,
+                () -> {
+                    try {
+                        if (sessionManager.isStudent()) {
+                            Long studentId = sessionManager.getCurrentStudentId();
+                            if (studentId == null) return Collections.emptyList();
+                            return sm.getEnrollmentService().getByStudent(studentId);
+                        }
+                        return sm.getEnrollmentService().findAll();
+                    }
                     catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
                 });
             tab.addTab("Đăng ký lớp", enrollmentPanel);
             panelRegistry.put("Enrollment", enrollmentPanel);
-            System.out.println("✓ Added Enrollments tab");
         } catch (Exception e) { 
-            System.out.println("✗ FATAL Error adding Enrollments: " + e.getMessage());
             e.printStackTrace(); 
         }
 
         try {
-            System.out.println("\n[DEBUG] Starting to build Attendances tab...");
             GenericPanel<Attendance> attendancePanel = new GenericPanel<>(Attendance.class, new AttendanceTableModel(),
                 () -> {
-                    try { return sm.getAttendanceService().findAll(); }
+                    try {
+                        if (sessionManager.isStudent()) {
+                            Long studentId = sessionManager.getCurrentStudentId();
+                            if (studentId == null) return Collections.emptyList();
+                            return sm.getAttendanceService().getHistoryByStudent(studentId);
+                        }
+                        if (sessionManager.isTeacher()) {
+                            return loadAttendancesForCurrentTeacher();
+                        }
+                        return sm.getAttendanceService().findAll();
+                    }
                     catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
                 });
             tab.addTab("Điểm danh", attendancePanel);
             panelRegistry.put("Attendance", attendancePanel);
-            System.out.println("✓ Added Attendances tab");
         } catch (Exception e) { 
-            System.out.println("✗ FATAL Error adding Attendances: " + e.getMessage());
             e.printStackTrace(); 
         }
 
         try {
-            System.out.println("\n[DEBUG] Starting to build Results tab...");
-            GenericPanel<Result> resultPanel = new GenericPanel<>(Result.class, new ResultTableModel(),
+            ResultPanel resultPanel = new ResultPanel(sm, sessionManager,
                 () -> {
-                    try { return sm.getResultService().findAll(); }
+                    try {
+                        if (sessionManager.isStudent()) {
+                            Long studentId = sessionManager.getCurrentStudentId();
+                            if (studentId == null) return Collections.emptyList();
+                            return sm.getResultService().getByStudent(studentId);
+                        }
+                        if (sessionManager.isTeacher()) {
+                            return loadResultsForCurrentTeacher();
+                        }
+                        return sm.getResultService().findAll();
+                    }
                     catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
                 });
-            System.out.println(">> ResultPanel created: " + resultPanel.getClass().getSimpleName());
             tab.addTab("Kết quả", resultPanel);
             panelRegistry.put("Result", resultPanel);
-            System.out.println("✓ Added Results tab");
         } catch (Exception e) { 
-            System.out.println("✗ FATAL Error adding Results: " + e.getMessage());
             e.printStackTrace(); 
         }
-
-        System.out.println("\n>> Education tabs total: " + tab.getTabCount());
-        System.out.println(">> Education tab names:");
-        for (int i = 0; i < tab.getTabCount(); i++) {
-            String title = tab.getTitleAt(i);
-            System.out.println("  Tab " + i + ": '" + title + "' (length: " + title.length() + ")");
-            // Check for encoding issues
-            for (char c : title.toCharArray()) {
-                if (c > 127) System.out.println("    Unicode char: " + c + " (" + (int)c + ")");
-            }
-        }
-        tab.setSelectedIndex(0); // Force select first tab
-        System.out.println(">> Selected tab: " + tab.getSelectedIndex() + " (" + tab.getTitleAt(tab.getSelectedIndex()) + ")");
-
-        // Add change listener to track tab switches
-        tab.addChangeListener(e -> {
-            int selected = tab.getSelectedIndex();
-            System.out.println(">> [TAB CHANGE] Education tab switched to: " + selected + " (" + tab.getTitleAt(selected) + ")");
-        });
 
         return tab;
     }
@@ -225,10 +215,19 @@ public class MainFrame extends JFrame {
         // Teachers
         GenericPanel<Teacher> teacherPanel = new GenericPanel<>(Teacher.class, new TeacherTableModel(),
             () -> {
-                try { return sm.getTeacherService().findAll(); }
+                try {
+                    if (sessionManager.isTeacher()) {
+                        Long teacherId = sessionManager.getCurrentTeacherId();
+                        if (teacherId == null) return Collections.emptyList();
+                        return sm.getTeacherService().findById(teacherId)
+                                .map(List::of)
+                                .orElseGet(Collections::emptyList);
+                    }
+                    return sm.getTeacherService().findAll();
+                }
                 catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
             });
-        tab.addTab("Giáo viên", teacherPanel);
+        tab.addTab(sessionManager.isTeacher() ? "Hồ sơ giáo viên" : "Giáo viên", teacherPanel);
         panelRegistry.put("Teacher", teacherPanel);
 
         // Staffs
@@ -243,10 +242,19 @@ public class MainFrame extends JFrame {
         // Students
         GenericPanel<Student> studentPanel = new GenericPanel<>(Student.class, new StudentTableModel(),
             () -> {
-                try { return sm.getStudentService().findAll(); }
+                try {
+                    if (sessionManager.isStudent()) {
+                        Long studentId = sessionManager.getCurrentStudentId();
+                        if (studentId == null) return Collections.emptyList();
+                        return sm.getStudentService().findById(studentId)
+                                .map(List::of)
+                                .orElseGet(Collections::emptyList);
+                    }
+                    return sm.getStudentService().findAll();
+                }
                 catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
             });
-        tab.addTab("Học viên", studentPanel);
+        tab.addTab(sessionManager.isStudent() ? "Hồ sơ cá nhân" : "Học viên", studentPanel);
         panelRegistry.put("Student", studentPanel);
 
         return tab;
@@ -260,7 +268,14 @@ public class MainFrame extends JFrame {
         // Invoices
         GenericPanel<Invoice> invoicePanel = new GenericPanel<>(Invoice.class, new InvoiceTableModel(),
             () -> {
-                try { return sm.getInvoiceService().findAll(); }
+                try {
+                    if (sessionManager.isStudent()) {
+                        Long studentId = sessionManager.getCurrentStudentId();
+                        if (studentId == null) return Collections.emptyList();
+                        return sm.getInvoiceService().getInvoicesByStudent(studentId);
+                    }
+                    return sm.getInvoiceService().findAll();
+                }
                 catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
             });
         tab.addTab("Hóa đơn", invoicePanel);
@@ -269,7 +284,14 @@ public class MainFrame extends JFrame {
         // Payments
         GenericPanel<Payment> paymentPanel = new GenericPanel<>(Payment.class, new PaymentTableModel(),
             () -> {
-                try { return sm.getPaymentService().findAll(); }
+                try {
+                    if (sessionManager.isStudent()) {
+                        Long studentId = sessionManager.getCurrentStudentId();
+                        if (studentId == null) return Collections.emptyList();
+                        return sm.getPaymentService().getPaymentsByStudent(studentId);
+                    }
+                    return sm.getPaymentService().findAll();
+                }
                 catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
             });
         tab.addTab("Thanh toán", paymentPanel);
@@ -309,23 +331,12 @@ public class MainFrame extends JFrame {
             role = "Student";
         }
 
-        System.out.println("\n>> [PERMISSIONS] User role: " + role);
-        System.out.println(">> [PERMISSIONS] Main tabs before setup: " + mainTabs.getTabCount());
-        for (int i = 0; i < mainTabs.getTabCount(); i++) {
-            System.out.println("  - " + i + ": " + mainTabs.getTitleAt(i));
-        }
-
         switch (role.toLowerCase()) {
             case "admin" -> handleAdminPermissions();
             case "staff" -> handleStaffPermissions();
             case "teacher" -> handleTeacherPermissions();
             case "student" -> handleStudentPermissions();
             default -> handleStudentPermissions();
-        }
-
-        System.out.println(">> [PERMISSIONS] Main tabs after setup: " + mainTabs.getTabCount());
-        for (int i = 0; i < mainTabs.getTabCount(); i++) {
-            System.out.println("  - " + i + ": " + mainTabs.getTitleAt(i));
         }
     }
 
@@ -348,9 +359,7 @@ public class MainFrame extends JFrame {
      * Staff: Vận hành + Tài chính, ẩn Xóa ở Tài chính, ẩn toàn nút ở Hệ thống.
      */
     private void handleStaffPermissions() {
-        System.out.println(">> [PERMISSIONS] Applying STAFF permissions");
-        removeTabByTitle("⚡ Hệ thống");
-        System.out.println(">> [PERMISSIONS] Removed System tab");
+        removeTabByTitle("Hệ thống");
 
         // Tài chính: chỉ xem
         BasePanel<?> invoicePanel = panelRegistry.get("Invoice");
@@ -361,22 +370,28 @@ public class MainFrame extends JFrame {
         if (paymentPanel != null) {
             paymentPanel.hideButtons("add", "edit", "delete");
         }
-        System.out.println(">> [PERMISSIONS] Finance tabs set to read-only");
     }
 
     /**
      * Teacher: Chỉ xem Classes, Schedules, Attendances, Results. Chỉ sửa điểm/điểm danh.
      */
     private void handleTeacherPermissions() {
-        removeTabByTitle("⚙️ Vận hành");
-        removeTabByTitle("💰 Tài chính");
-        removeTabByTitle("⚡ Hệ thống");
+        removeTabByTitle("Tài chính");
+        removeTabByTitle("Hệ thống");
 
         // Ẩn tab con trong Đào tạo
         JTabbedPane educationTab = (JTabbedPane) mainTabs.getComponentAt(0);
         if (educationTab != null) {
             removeTabInContainer(educationTab, "Khóa học");
             removeTabInContainer(educationTab, "Đăng ký lớp");
+        }
+
+        JTabbedPane operationsTab = findMainTabPane("Vận hành");
+        if (operationsTab != null) {
+            removeTabInContainer(operationsTab, "Phòng học");
+            removeTabInContainer(operationsTab, "Nhân viên");
+            removeTabInContainer(operationsTab, "Học viên");
+            removeTabInContainer(operationsTab, "Hồ sơ cá nhân");
         }
 
         // Chỉ sửa điểm & điểm danh
@@ -384,9 +399,13 @@ public class MainFrame extends JFrame {
         if (attendancePanel != null) {
             attendancePanel.hideButtons("add", "delete");
         }
+        BasePanel<?> schedulePanel = panelRegistry.get("Schedule");
+        if (schedulePanel != null) {
+            schedulePanel.hideButtons("add", "edit", "delete");
+        }
         BasePanel<?> resultPanel = panelRegistry.get("Result");
         if (resultPanel != null) {
-            resultPanel.hideButtons("add", "delete");
+            resultPanel.hideButtons("delete");
         }
 
         // Classes: chỉ xem
@@ -394,37 +413,52 @@ public class MainFrame extends JFrame {
         if (classPanel != null) {
             classPanel.hideButtons("add", "edit", "delete");
         }
+
+        BasePanel<?> teacherPanel = panelRegistry.get("Teacher");
+        if (teacherPanel != null) {
+            teacherPanel.hideButtons("add", "delete");
+        }
     }
 
     /**
-     * Student: Chỉ xem Kết quả, Hóa đơn, Thanh toán. Ẩn tất cả nút.
+     * Student: Chỉ xem hồ sơ, đăng ký lớp, lịch học, điểm danh, kết quả, hóa đơn và thanh toán của chính mình.
      */
     private void handleStudentPermissions() {
-        removeTabByTitle("⚙️ Vận hành");
-        removeTabByTitle("⚡ Hệ thống");
+        removeTabByTitle("Hệ thống");
 
         // Ẩn tab con trong Đào tạo
         JTabbedPane educationTab = (JTabbedPane) mainTabs.getComponentAt(0);
         if (educationTab != null) {
             removeTabInContainer(educationTab, "Khóa học");
             removeTabInContainer(educationTab, "Lớp học");
-            removeTabInContainer(educationTab, "Đăng ký lớp");
-            removeTabInContainer(educationTab, "Điểm danh");
+        }
+
+        JTabbedPane operationsTab = findMainTabPane("Vận hành");
+        if (operationsTab != null) {
+            removeTabInContainer(operationsTab, "Phòng học");
+            removeTabInContainer(operationsTab, "Giáo viên");
+            removeTabInContainer(operationsTab, "Nhân viên");
         }
 
         // Ẩn tất cả nút bấm ở các tab có quyền
-        for (String key : new String[]{"Result", "Invoice", "Payment"}) {
+        for (String key : new String[]{"Student", "Schedule", "Attendance", "Result", "Invoice", "Payment"}) {
             BasePanel<?> panel = panelRegistry.get(key);
             if (panel != null) {
                 panel.hideButtons("add", "edit", "delete");
             }
+        }
+
+        BasePanel<?> enrollmentPanel = panelRegistry.get("Enrollment");
+        if (enrollmentPanel != null) {
+            enrollmentPanel.hideButtons("edit");
+            enrollmentPanel.setButtonVisible("add", true);
+            enrollmentPanel.setButtonVisible("delete", true);
         }
     }
 
     private void removeTabByTitle(String title) {
         for (int i = 0; i < mainTabs.getTabCount(); i++) {
             if (mainTabs.getTitleAt(i).equals(title)) {
-                System.out.println(">> [PERMISSIONS] Removing tab: '" + title + "' at index " + i);
                 mainTabs.removeTabAt(i);
                 break;
             }
@@ -438,6 +472,107 @@ public class MainFrame extends JFrame {
                 break;
             }
         }
+    }
+
+    private JTabbedPane findMainTabPane(String title) {
+        for (int i = 0; i < mainTabs.getTabCount(); i++) {
+            if (mainTabs.getTitleAt(i).equals(title) && mainTabs.getComponentAt(i) instanceof JTabbedPane tabbedPane) {
+                return tabbedPane;
+            }
+        }
+        return null;
+    }
+
+    private List<Schedule> loadSchedulesForCurrentStudent() throws Exception {
+        Long studentId = sessionManager.getCurrentStudentId();
+        if (studentId == null) {
+            return Collections.emptyList();
+        }
+
+        List<Enrollment> enrollments = sm.getEnrollmentService().getByStudent(studentId);
+        Map<Long, Schedule> schedulesById = new LinkedHashMap<>();
+
+        for (Enrollment enrollment : enrollments) {
+            if (enrollment.getClassEntity() == null || enrollment.getClassEntity().getId() <= 0) {
+                continue;
+            }
+
+            List<Schedule> schedules = sm.getScheduleService().getByClass(enrollment.getClassEntity().getId());
+            for (Schedule schedule : schedules) {
+                schedulesById.putIfAbsent(schedule.getId(), schedule);
+            }
+        }
+
+        List<Schedule> result = new ArrayList<>(schedulesById.values());
+        result.sort(Comparator
+                .comparing(Schedule::getStudyDate)
+                .thenComparing(Schedule::getStartTime));
+        return result;
+    }
+
+    private List<ClassEntity> loadClassesForCurrentTeacher() throws Exception {
+        Long teacherId = sessionManager.getCurrentTeacherId();
+        if (teacherId == null) {
+            return Collections.emptyList();
+        }
+        return sm.getClassService().findByTeacher(teacherId);
+    }
+
+    private List<Schedule> loadSchedulesForCurrentTeacher() throws Exception {
+        List<ClassEntity> classes = loadClassesForCurrentTeacher();
+        Map<Long, Schedule> schedulesById = new LinkedHashMap<>();
+
+        for (ClassEntity classEntity : classes) {
+            List<Schedule> schedules = sm.getScheduleService().getByClass(classEntity.getId());
+            for (Schedule schedule : schedules) {
+                schedulesById.putIfAbsent(schedule.getId(), schedule);
+            }
+        }
+
+        List<Schedule> result = new ArrayList<>(schedulesById.values());
+        result.sort(Comparator
+                .comparing(Schedule::getStudyDate)
+                .thenComparing(Schedule::getStartTime));
+        return result;
+    }
+
+    private List<Attendance> loadAttendancesForCurrentTeacher() throws Exception {
+        Set<Long> classIds = loadTeacherClassIds();
+        if (classIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Attendance> attendances = sm.getAttendanceService().findAll();
+        return attendances.stream()
+                .filter(attendance -> attendance.getClassEntity() != null)
+                .filter(attendance -> classIds.contains(attendance.getClassEntity().getId()))
+                .sorted(Comparator
+                        .comparing(Attendance::getAttendDate)
+                        .thenComparing(attendance -> attendance.getClassEntity().getClassName(), Comparator.nullsLast(String::compareToIgnoreCase)))
+                .toList();
+    }
+
+    private List<Result> loadResultsForCurrentTeacher() throws Exception {
+        Set<Long> classIds = loadTeacherClassIds();
+        if (classIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Result> results = sm.getResultService().findAll();
+        return results.stream()
+                .filter(result -> result.getClassEntity() != null)
+                .filter(result -> classIds.contains(result.getClassEntity().getId()))
+                .sorted(Comparator.comparing(result -> result.getClassEntity().getClassName(), Comparator.nullsLast(String::compareToIgnoreCase)))
+                .toList();
+    }
+
+    private Set<Long> loadTeacherClassIds() throws Exception {
+        List<ClassEntity> classes = loadClassesForCurrentTeacher();
+        Set<Long> classIds = new HashSet<>();
+        for (ClassEntity classEntity : classes) {
+            classIds.add(classEntity.getId());
+        }
+        return classIds;
     }
 
     // =============== MENU ===============
@@ -465,7 +600,9 @@ public class MainFrame extends JFrame {
         mHelp.add(miAbout);
 
         bar.add(mFile);
-        bar.add(mReports);
+        if (!sessionManager.isStudent()) {
+            bar.add(mReports);
+        }
         bar.add(mHelp);
         return bar;
     }
@@ -486,6 +623,8 @@ public class MainFrame extends JFrame {
     private void onLogout() {
         sessionManager.logout();
         JOptionPane.showMessageDialog(this, "Đã đăng xuất thành công.");
+        LoginForm loginForm = new LoginForm(sm);
+        loginForm.setVisible(true);
         dispose();
     }
 }

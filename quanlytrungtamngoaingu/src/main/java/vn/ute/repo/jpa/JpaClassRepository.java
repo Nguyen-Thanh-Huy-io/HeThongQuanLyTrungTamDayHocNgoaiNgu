@@ -17,21 +17,21 @@ public class JpaClassRepository extends AbstractJpaRepository<ClassEntity, Long>
 
     @Override
     public List<ClassEntity> findByCourseId(EntityManager em,Long courseId) {
-        return em.createQuery("SELECT c FROM Class c WHERE c.course.id = :courseId", ClassEntity.class)
+        return em.createQuery("SELECT c FROM ClassEntity c WHERE c.course.id = :courseId", ClassEntity.class)
                 .setParameter("courseId", courseId)
                 .getResultList();
     }
 
     @Override
     public List<ClassEntity> findByTeacherId(EntityManager em,Long teacherId) {
-        return em.createQuery("SELECT c FROM Class c WHERE c.teacher.id = :teacherId", ClassEntity.class)
+        return em.createQuery("SELECT c FROM ClassEntity c WHERE c.teacher.id = :teacherId", ClassEntity.class)
                 .setParameter("teacherId", teacherId)
                 .getResultList();
     }
 
     @Override
     public List<ClassEntity> findByRoomId(EntityManager em,Long roomId) {
-        return em.createQuery("SELECT c FROM Class c WHERE c.room.id = :roomId", ClassEntity.class)
+        return em.createQuery("SELECT c FROM ClassEntity c WHERE c.room.id = :roomId", ClassEntity.class)
                 .setParameter("roomId", roomId)
                 .getResultList();
     }
