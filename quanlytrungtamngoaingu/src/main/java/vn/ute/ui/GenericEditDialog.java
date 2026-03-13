@@ -1,9 +1,17 @@
 package vn.ute.ui;
 
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.JoinColumn;
 import vn.ute.db.TransactionManager;
+import vn.ute.model.ClassEntity;
+import vn.ute.model.Course;
+import vn.ute.model.Enrollment;
+import vn.ute.model.Invoice;
+import vn.ute.model.Room;
+import vn.ute.model.Staff;
 import vn.ute.model.Student;
 import vn.ute.model.Teacher;
+import vn.ute.model.UserAccount;
 import vn.ute.service.ServiceManager;
 
 import javax.swing.*;
@@ -11,10 +19,11 @@ import java.awt.*;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 
 /**
  * A very simple dialog that builds a form from a bean's fields using reflection.
@@ -24,9 +33,8 @@ import java.util.Map;
 public class GenericEditDialog<T> extends JDialog {
     private final Class<T> type;
     private final T instance;
-    private final List<Field> editableFields = new ArrayList<>();
-    private final List<JTextField> inputs = new ArrayList<>();
-    private final Map<Field, JTextField> relationIdInputs = new HashMap<>();
+    private final List<FieldInput> editableInputs = new ArrayList<>();
+    private final List<RelationFieldInput> relationInputs = new ArrayList<>();
 
     public GenericEditDialog(Window owner, Class<T> type) {
         this(owner, type, null);
@@ -56,23 +64,11 @@ public class GenericEditDialog<T> extends JDialog {
             }
 
             if (f.isAnnotationPresent(ManyToOne.class)) {
-                panel.add(new JLabel(f.getName() + "Id:"), gbc);
+                panel.add(new JLabel(f.getName() + ":"), gbc);
                 gbc.gridx = 1;
-                JTextField tf = new JTextField(20);
-                if (instance != null) {
-                    try {
-                        Object relation = f.get(instance);
-                        if (relation != null) {
-                            Field relIdField = relation.getClass().getDeclaredField("id");
-                            relIdField.setAccessible(true);
-                            Object relId = relIdField.get(relation);
-                            tf.setText(relId != null ? relId.toString() : "");
-                        }
-                    } catch (Exception ignored) {
-                    }
-                }
-                panel.add(tf, gbc);
-                relationIdInputs.put(f, tf);
+                JComboBox<Object> relationComboBox = createRelationComboBox(f);
+                panel.add(relationComboBox, gbc);
+                relationInputs.add(new RelationFieldInput(f, relationComboBox));
 
                 gbc.gridx = 0;
                 gbc.gridy++;
@@ -86,17 +82,10 @@ public class GenericEditDialog<T> extends JDialog {
 
             panel.add(new JLabel(f.getName() + ":"), gbc);
             gbc.gridx = 1;
-            JTextField tf = new JTextField(20);
-            if (instance != null) {
-                try {
-                    Object value = f.get(instance);
-                    tf.setText(value != null ? value.toString() : "");
-                } catch (Exception ignored) {
-                }
-            }
-            panel.add(tf, gbc);
-            editableFields.add(f);
-            inputs.add(tf);
+            JComponent input = createInputComponent(f);
+            bindExistingValue(f, input);
+            panel.add(input, gbc);
+            editableInputs.add(new FieldInput(f, input));
 
             gbc.gridx = 0;
             gbc.gridy++;
@@ -126,16 +115,19 @@ public class GenericEditDialog<T> extends JDialog {
     protected boolean onSave() {
         try {
             T target = (instance != null) ? instance : type.getDeclaredConstructor().newInstance();
-            for (int i = 0; i < editableFields.size(); i++) {
-                Field field = editableFields.get(i);
-                String raw = inputs.get(i).getText().trim();
-                Object converted = convertValue(field.getType(), raw);
+            for (FieldInput input : editableInputs) {
+                Field field = input.field;
+                Object converted = readInputValue(field, input.component);
                 field.setAccessible(true);
                 field.set(target, converted);
             }
 
-            Map<Field, Long> relationIds = readRelationIds();
-            saveEntity(target, relationIds);
+            for (RelationFieldInput relationInput : relationInputs) {
+                relationInput.field.setAccessible(true);
+                relationInput.field.set(target, relationInput.comboBox.getSelectedItem());
+            }
+
+            saveEntity(target);
             JOptionPane.showMessageDialog(this, "Lưu dữ liệu thành công!");
             return true;
         } catch (Exception ex) {
@@ -154,7 +146,182 @@ public class GenericEditDialog<T> extends JDialog {
                 || t == Boolean.class
                 || t == BigDecimal.class
                 || t == LocalDate.class
+                || t == LocalDateTime.class
+                || t == LocalTime.class
                 || t.isEnum();
+    }
+
+    private JComponent createInputComponent(Field field) {
+        Class<?> fieldType = field.getType();
+
+        if (fieldType.isEnum()) {
+            JComboBox<Object> comboBox = new JComboBox<>(fieldType.getEnumConstants());
+            comboBox.setRenderer(new DefaultListCellRenderer());
+            return comboBox;
+        }
+
+        if (fieldType == boolean.class || fieldType == Boolean.class) {
+            return new JCheckBox();
+        }
+
+        return new JTextField(20);
+    }
+
+    private void bindExistingValue(Field field, JComponent input) {
+        if (instance == null) {
+            return;
+        }
+
+        try {
+            Object value = field.get(instance);
+            if (input instanceof JTextField textField) {
+                textField.setText(value != null ? value.toString() : "");
+                return;
+            }
+            if (input instanceof JComboBox<?> comboBox) {
+                comboBox.setSelectedItem(value);
+                return;
+            }
+            if (input instanceof JCheckBox checkBox) {
+                checkBox.setSelected(Boolean.TRUE.equals(value));
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private Object readInputValue(Field field, JComponent component) {
+        if (component instanceof JTextField textField) {
+            return convertValue(field.getType(), textField.getText().trim());
+        }
+        if (component instanceof JComboBox<?> comboBox) {
+            return comboBox.getSelectedItem();
+        }
+        if (component instanceof JCheckBox checkBox) {
+            return checkBox.isSelected();
+        }
+        return null;
+    }
+
+    private JComboBox<Object> createRelationComboBox(Field relationField) {
+        List<Object> relationItems = loadRelationItems(relationField.getType());
+        JComboBox<Object> comboBox = new JComboBox<>();
+
+        if (isNullableRelation(relationField)) {
+            comboBox.addItem(null);
+        }
+        for (Object item : relationItems) {
+            comboBox.addItem(item);
+        }
+
+        comboBox.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                setText(buildRelationLabel(value));
+                return this;
+            }
+        });
+
+        if (instance != null) {
+            try {
+                Object existingRelation = relationField.get(instance);
+                selectRelationItem(comboBox, existingRelation);
+            } catch (Exception ignored) {
+            }
+        }
+
+        return comboBox;
+    }
+
+    private List<Object> loadRelationItems(Class<?> relationType) {
+        try {
+            List<Object> items = TransactionManager.executeInTransaction(em ->
+                    em.createQuery("select e from " + relationType.getSimpleName() + " e", Object.class).getResultList()
+            );
+            items.sort(Comparator.comparing(this::buildRelationLabel, String.CASE_INSENSITIVE_ORDER));
+            return items;
+        } catch (Exception ignored) {
+            return new ArrayList<>();
+        }
+    }
+
+    private boolean isNullableRelation(Field relationField) {
+        JoinColumn joinColumn = relationField.getAnnotation(JoinColumn.class);
+        return joinColumn == null || joinColumn.nullable();
+    }
+
+    private void selectRelationItem(JComboBox<Object> comboBox, Object existingRelation) {
+        if (existingRelation == null) {
+            comboBox.setSelectedItem(null);
+            return;
+        }
+
+        Long existingId = extractEntityId(existingRelation);
+        for (int i = 0; i < comboBox.getItemCount(); i++) {
+            Object option = comboBox.getItemAt(i);
+            Long optionId = extractEntityId(option);
+            if (existingId != null && existingId.equals(optionId)) {
+                comboBox.setSelectedIndex(i);
+                return;
+            }
+        }
+    }
+
+    private Long extractEntityId(Object entity) {
+        if (entity == null) {
+            return null;
+        }
+        try {
+            Field idField = entity.getClass().getDeclaredField("id");
+            idField.setAccessible(true);
+            Object value = idField.get(entity);
+            if (value instanceof Number number) {
+                return number.longValue();
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    private String buildRelationLabel(Object value) {
+        if (value == null) {
+            return "-- Chua chon --";
+        }
+
+        if (value instanceof Student student) {
+            String email = student.getEmail() != null ? student.getEmail() : "khong co email";
+            return student.getFullName() + " (" + email + ")";
+        }
+        if (value instanceof Teacher teacher) {
+            return teacher.getFullName();
+        }
+        if (value instanceof Staff staff) {
+            return staff.getFullName();
+        }
+        if (value instanceof ClassEntity classEntity) {
+            return classEntity.getClassName();
+        }
+        if (value instanceof Course course) {
+            return course.getCourseName();
+        }
+        if (value instanceof Room room) {
+            return room.getRoomName();
+        }
+        if (value instanceof Invoice invoice) {
+            return "HD#" + invoice.getId();
+        }
+        if (value instanceof Enrollment enrollment) {
+            return "DK#" + enrollment.getId();
+        }
+        if (value instanceof UserAccount userAccount) {
+            return userAccount.getUsername();
+        }
+
+        Long id = extractEntityId(value);
+        if (id != null) {
+            return value.getClass().getSimpleName() + " #" + id;
+        }
+        return value.toString();
     }
 
     private Object convertValue(Class<?> type, String raw) {
@@ -188,6 +355,20 @@ public class GenericEditDialog<T> extends JDialog {
         if (type == LocalDate.class) {
             return LocalDate.parse(raw);
         }
+        if (type == LocalDateTime.class) {
+            String normalized = raw.replace(' ', 'T');
+            if (normalized.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$")) {
+                normalized += ":00";
+            }
+            return LocalDateTime.parse(normalized);
+        }
+        if (type == LocalTime.class) {
+            String normalized = raw;
+            if (normalized.matches("^\\d{2}:\\d{2}$")) {
+                normalized += ":00";
+            }
+            return LocalTime.parse(normalized);
+        }
         if (type.isEnum()) {
             @SuppressWarnings({"rawtypes", "unchecked"})
             Class<Enum> enumType = (Class<Enum>) type;
@@ -202,18 +383,7 @@ public class GenericEditDialog<T> extends JDialog {
         return null;
     }
 
-    private Map<Field, Long> readRelationIds() {
-        Map<Field, Long> relationIds = new HashMap<>();
-        for (Map.Entry<Field, JTextField> entry : relationIdInputs.entrySet()) {
-            String raw = entry.getValue().getText().trim();
-            if (!raw.isEmpty()) {
-                relationIds.put(entry.getKey(), Long.parseLong(raw));
-            }
-        }
-        return relationIds;
-    }
-
-    private void saveEntity(T target, Map<Field, Long> relationIds) throws Exception {
+    private void saveEntity(T target) throws Exception {
         boolean isNew = isNewEntity(target);
         ServiceManager sm = ServiceManager.getInstance();
 
@@ -237,14 +407,6 @@ public class GenericEditDialog<T> extends JDialog {
 
         // Fallback generic persistence for other entities.
         TransactionManager.executeInTransaction(em -> {
-            for (Map.Entry<Field, Long> relationEntry : relationIds.entrySet()) {
-                Field relationField = relationEntry.getKey();
-                Long relationId = relationEntry.getValue();
-                Object reference = em.getReference(relationField.getType(), relationId);
-                relationField.setAccessible(true);
-                relationField.set(target, reference);
-            }
-
             if (isNew) {
                 em.persist(target);
             } else {
@@ -252,6 +414,26 @@ public class GenericEditDialog<T> extends JDialog {
             }
             return null;
         });
+    }
+
+    private static class FieldInput {
+        private final Field field;
+        private final JComponent component;
+
+        private FieldInput(Field field, JComponent component) {
+            this.field = field;
+            this.component = component;
+        }
+    }
+
+    private static class RelationFieldInput {
+        private final Field field;
+        private final JComboBox<Object> comboBox;
+
+        private RelationFieldInput(Field field, JComboBox<Object> comboBox) {
+            this.field = field;
+            this.comboBox = comboBox;
+        }
     }
 
     private boolean isNewEntity(T target) {

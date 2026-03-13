@@ -15,6 +15,7 @@ vn\ute\service\impl\ScheduleServiceImpl.class
 vn\ute\ui\EnrollmentTableModel.class
 vn\ute\repo\ResultRepository.class
 vn\ute\repo\jpa\JpaStudentRepository.class
+vn\ute\ui\TeacherScheduleTableModel.class
 vn\ute\ui\PaymentTableModel.class
 vn\ute\repo\Repository.class
 vn\ute\service\impl\ResultServiceImpl.class
@@ -48,6 +49,7 @@ vn\ute\model\BaseEntity.class
 vn\ute\model\Attendance$AttendStatus.class
 vn\ute\repo\CourseRepository.class
 vn\ute\model\Course$Status.class
+vn\ute\ui\reports\AdminReportPanel$5.class
 vn\ute\model\ClassEntity$ClassStatus.class
 vn\ute\service\impl\EnrollmentServiceImpl.class
 vn\ute\ui\RoomTableModel.class
@@ -72,6 +74,7 @@ vn\ute\model\UserAccount$UserRole.class
 vn\ute\repo\RoomRepository.class
 vn\ute\service\impl\RoomServiceImpl.class
 vn\ute\service\ServiceManager.class
+vn\ute\ui\SchedulePanel$2.class
 vn\ute\model\Payment.class
 vn\ute\model\Schedule.class
 vn\ute\repo\StaffRepository.class
@@ -106,6 +109,7 @@ vn\ute\ui\reports\StreamReportsDialog.class
 vn\ute\repo\EnrollmentRepository.class
 vn\ute\model\Result.class
 vn\ute\repo\jpa\JpaCourseRepository.class
+vn\ute\ui\StudentScheduleTableModel.class
 vn\ute\model\Course$Level.class
 vn\ute\repo\ScheduleRepository.class
 vn\ute\db\TransactionManager.class

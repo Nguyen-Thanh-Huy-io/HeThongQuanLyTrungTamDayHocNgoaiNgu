@@ -13,6 +13,9 @@ public interface UserAccountRepository extends Repository<UserAccount, Long> {
     
     // Tìm tài khoản liên kết với một giáo viên cụ thể
     Optional<UserAccount> findByTeacherId(EntityManager em,Long teacherId);
+
+    // Tìm tài khoản liên kết với một nhân viên cụ thể
+    Optional<UserAccount> findByStaffId(EntityManager em,Long staffId);
     
     // Kiểm tra trạng thái hoạt động của tài khoản
     boolean isAccountActive(EntityManager em,String username);

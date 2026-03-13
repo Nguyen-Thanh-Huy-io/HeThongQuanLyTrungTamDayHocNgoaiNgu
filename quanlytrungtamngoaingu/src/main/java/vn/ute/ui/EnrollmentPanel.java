@@ -25,7 +25,7 @@ public class EnrollmentPanel extends BasePanel<Enrollment> {
     private final Supplier<List<Enrollment>> dataLoader;
 
     public EnrollmentPanel(ServiceManager serviceManager, SessionManager sessionManager, Supplier<List<Enrollment>> dataLoader) {
-        super(new EnrollmentTableModel());
+        super(sessionManager.isStudent() ? new StudentEnrollmentTableModel() : new EnrollmentTableModel());
         this.serviceManager = serviceManager;
         this.sessionManager = sessionManager;
         this.dataLoader = dataLoader;

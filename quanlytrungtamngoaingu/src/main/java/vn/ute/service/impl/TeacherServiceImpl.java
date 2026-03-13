@@ -75,7 +75,33 @@ public class TeacherServiceImpl extends AbstractService<Teacher, Long> implement
     @Override
     public void updateTeacher(Teacher t) throws Exception {
         TransactionManager.executeInTransaction((EntityManager em) -> {
+            if (t == null || t.getId() <= 0) {
+                throw new Exception("Không tìm thấy thông tin giáo viên để cập nhật!");
+            }
+
+            Teacher existing = teacherRepo.findById(em, t.getId())
+                    .orElseThrow(() -> new Exception("Không tìm thấy giáo viên có ID: " + t.getId()));
+
+            if (t.getEmail() != null && !t.getEmail().isBlank()) {
+                Optional<Teacher> duplicatedEmail = teacherRepo.findByEmail(em, t.getEmail().trim());
+                if (duplicatedEmail.isPresent() && duplicatedEmail.get().getId() != t.getId()) {
+                    throw new Exception("Email giáo viên này đã tồn tại!");
+                }
+            }
+
+            if (t.getHireDate() == null) {
+                t.setHireDate(existing.getHireDate());
+            }
+            if (t.getStatus() == null) {
+                t.setStatus(existing.getStatus());
+            }
+
             teacherRepo.update(em, t);
+
+            accountRepo.findByTeacherId(em, t.getId()).ifPresent(account -> {
+                account.setActive(t.getStatus() == Teacher.Status.Active);
+                accountRepo.update(em, account);
+            });
             return null;
         });
     }
@@ -85,6 +111,8 @@ public class TeacherServiceImpl extends AbstractService<Teacher, Long> implement
         TransactionManager.executeInTransaction((EntityManager em) -> {
             Teacher t = teacherRepo.findById(em, id)
                     .orElseThrow(() -> new Exception("Không tìm thấy giáo viên có ID: " + id));
+
+            accountRepo.findByTeacherId(em, id).ifPresent(account -> accountRepo.delete(em, account));
             teacherRepo.delete(em, t);
             return null;
         });

@@ -10,6 +10,8 @@ public abstract class BasePanel<T> extends JPanel {
     protected JTable table;
     protected AbstractTableModel tableModel;
     protected JButton btnAdd, btnEdit, btnDelete, btnRefresh;
+    protected JToolBar toolbar;
+    protected JScrollPane tableScrollPane;
 
     public BasePanel(AbstractTableModel model) {
         this.tableModel = model;
@@ -19,30 +21,31 @@ public abstract class BasePanel<T> extends JPanel {
     }
 
     private void buildUI() {
-        // toolbar bây giờ là JToolBar có style và icon nhỏ
-        JToolBar toolbar = new JToolBar();
+        toolbar = new JToolBar();
         UIUtils.styleToolbar(toolbar);
 
-        // không dùng icon để giao diện gọn
-        btnAdd = new JButton("Thêm");
-        btnEdit = new JButton("Sửa");
-        btnDelete = new JButton("Xóa");
-        btnRefresh = new JButton("Làm mới");
-
-        btnAdd.setFont(UIUtils.DEFAULT_FONT);
-        btnEdit.setFont(UIUtils.DEFAULT_FONT);
-        btnDelete.setFont(UIUtils.DEFAULT_FONT);
-        btnRefresh.setFont(UIUtils.DEFAULT_FONT);
+        btnAdd     = UIUtils.createPrimaryButton("Thêm");
+        btnEdit    = UIUtils.createSecondaryButton("Sửa");
+        btnDelete  = UIUtils.createDangerButton("Xóa");
+        btnRefresh = UIUtils.createSecondaryButton("Làm mới");
 
         // đẩy các nút sang phải
         toolbar.add(Box.createHorizontalGlue());
         toolbar.add(btnAdd);
+        toolbar.add(Box.createHorizontalStrut(6));
         toolbar.add(btnEdit);
+        toolbar.add(Box.createHorizontalStrut(6));
         toolbar.add(btnDelete);
+        toolbar.add(Box.createHorizontalStrut(6));
         toolbar.add(btnRefresh);
 
+        tableScrollPane = new JScrollPane(table);
+        tableScrollPane.setBorder(BorderFactory.createLineBorder(UIUtils.BORDER_COLOR));
+        tableScrollPane.getViewport().setBackground(UIUtils.SURFACE);
+        UIUtils.styleTable(table);
+
         add(toolbar, BorderLayout.NORTH);
-        add(new JScrollPane(table), BorderLayout.CENTER);
+        add(tableScrollPane, BorderLayout.CENTER);
 
         // Gán sự kiện cơ bản
         btnRefresh.addActionListener(e -> reloadData());
@@ -100,5 +103,14 @@ public abstract class BasePanel<T> extends JPanel {
         for (String name : buttonNames) {
             setButtonEnabled(name, false);
         }
+    }
+
+    protected void setMainContent(Component component) {
+        if (tableScrollPane != null) {
+            remove(tableScrollPane);
+        }
+        add(component, BorderLayout.CENTER);
+        revalidate();
+        repaint();
     }
 }

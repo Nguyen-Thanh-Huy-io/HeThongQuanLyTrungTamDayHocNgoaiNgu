@@ -1,13 +1,18 @@
 package vn.ute.ui;
 
 import vn.ute.service.ServiceManager;
+import vn.ute.ui.reports.AdminReportPanel;
 import vn.ute.ui.reports.StreamReportsDialog;
 import vn.ute.model.*;
 import vn.ute.ui.SessionManager;
 
 import javax.swing.*;
 import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.FlowLayout;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -32,6 +37,7 @@ public class MainFrame extends JFrame {
     private final ServiceManager sm;
     private final SessionManager sessionManager;
     private JTabbedPane mainTabs;
+    private AdminReportPanel adminReportPanel;
     private final Map<String, BasePanel<?>> panelRegistry = new HashMap<>();
 
     public MainFrame(ServiceManager serviceManager) {
@@ -52,9 +58,18 @@ public class MainFrame extends JFrame {
      * Xây dựng giao diện với 4 nhóm nghiệp vụ.
      */
     private void buildUI() {
-        mainTabs = new JTabbedPane();
-        mainTabs.setFont(UIUtils.DEFAULT_FONT.deriveFont(Font.PLAIN, 16));
-        mainTabs.setBackground(UIUtils.SECONDARY_COLOR);
+        JPanel shell = new JPanel(new BorderLayout(0, 0));
+        shell.setBackground(UIUtils.APP_BG);
+        shell.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+
+        shell.add(createHeaderPanel(), BorderLayout.NORTH);
+
+        mainTabs = new JTabbedPane(JTabbedPane.LEFT);
+        mainTabs.setFont(UIUtils.DEFAULT_FONT.deriveFont(Font.BOLD, 15f));
+        mainTabs.setBackground(UIUtils.APP_BG);
+        mainTabs.setOpaque(true);
+        mainTabs.setBorder(BorderFactory.createEmptyBorder());
+        mainTabs.setPreferredSize(new Dimension(1200, 700));
 
         // Nhóm 1: Đào tạo
         JTabbedPane eduTab = buildEducationTab();
@@ -72,16 +87,110 @@ public class MainFrame extends JFrame {
         JTabbedPane sysTab = buildSystemTab();
         mainTabs.addTab("Hệ thống", sysTab);
 
+        // Nhóm 5: Báo cáo (chỉ Admin)
+        if (sessionManager.isAdmin()) {
+            adminReportPanel = new AdminReportPanel(sm);
+            mainTabs.addTab("Báo cáo", adminReportPanel);
+        }
+
         setJMenuBar(createMenuBar());
-        getContentPane().add(mainTabs, BorderLayout.CENTER);
-        getContentPane().setBackground(UIUtils.SECONDARY_COLOR);
+        shell.add(mainTabs, BorderLayout.CENTER);
+        getContentPane().add(shell, BorderLayout.CENTER);
+        getContentPane().setBackground(UIUtils.APP_BG);
+    }
+
+    private JPanel createHeaderPanel() {
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(true);
+        header.setBackground(UIUtils.PRIMARY_COLOR);
+        header.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 3, 0, UIUtils.PRIMARY_DARK),
+                BorderFactory.createEmptyBorder(14, 20, 14, 20)
+        ));
+
+        JLabel title = new JLabel("Trung tâm Ngoại ngữ");
+        title.setFont(UIUtils.DEFAULT_FONT.deriveFont(Font.BOLD, 24f));
+        title.setForeground(Color.WHITE);
+
+        String subtitleText = sessionManager.isAdmin() ? "Quản trị toàn bộ hệ thống"
+                : sessionManager.isStaff() ? "Điều phối vận hành và tài chính"
+                : sessionManager.isTeacher() ? "Theo dõi lịch dạy, điểm danh và kết quả"
+                : "Theo dõi lịch học, đăng ký lớp và thanh toán";
+        JLabel subtitle = new JLabel(subtitleText);
+        subtitle.setFont(UIUtils.DEFAULT_FONT.deriveFont(Font.PLAIN, 13f));
+        subtitle.setForeground(UIUtils.PRIMARY_LIGHT);
+
+        JPanel titleBox = new JPanel();
+        titleBox.setOpaque(false);
+        titleBox.setLayout(new BoxLayout(titleBox, BoxLayout.Y_AXIS));
+        titleBox.add(title);
+        titleBox.add(Box.createVerticalStrut(4));
+        titleBox.add(subtitle);
+
+        JPanel userBadge = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        userBadge.setOpaque(false);
+
+        JLabel roleBadge = new JLabel("  " + sessionManager.getCurrentRoleAsString() + "  ");
+        roleBadge.setOpaque(true);
+        roleBadge.setBackground(UIUtils.PRIMARY_DARK);
+        roleBadge.setForeground(UIUtils.PRIMARY_LIGHT);
+        roleBadge.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(UIUtils.PRIMARY_LIGHT, 1),
+                BorderFactory.createEmptyBorder(5, 10, 5, 10)
+        ));
+        roleBadge.setFont(UIUtils.DEFAULT_FONT.deriveFont(Font.BOLD, 13f));
+
+        String username = sessionManager.getCurrentUser() != null
+                ? sessionManager.getCurrentUser().getUsername()
+                : "Anonymous";
+        JLabel usernameLabel = new JLabel(username);
+        usernameLabel.setFont(UIUtils.DEFAULT_FONT.deriveFont(Font.BOLD, 14f));
+        usernameLabel.setForeground(Color.WHITE);
+
+        userBadge.add(usernameLabel);
+        userBadge.add(roleBadge);
+
+        header.add(titleBox, BorderLayout.WEST);
+        header.add(userBadge, BorderLayout.EAST);
+        return header;
+    }
+
+    private void configureSectionTabs(JTabbedPane tab) {
+        tab.setTabPlacement(JTabbedPane.TOP);
+        tab.setTabLayoutPolicy(JTabbedPane.WRAP_TAB_LAYOUT);
+        tab.setFont(UIUtils.DEFAULT_FONT.deriveFont(Font.BOLD, 14f));
+        tab.setBackground(UIUtils.SURFACE);
+        tab.setOpaque(true);
+        tab.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 0, 0, UIUtils.BORDER_COLOR),
+                BorderFactory.createEmptyBorder(6, 8, 6, 8)
+        ));
     }
 
     // =============== NHÓM 1: ĐÀO TẠO (EDUCATION) ===============
     private JTabbedPane buildEducationTab() {
         JTabbedPane tab = new JTabbedPane(JTabbedPane.TOP);
-        tab.setTabPlacement(JTabbedPane.TOP);
-        tab.setTabLayoutPolicy(JTabbedPane.WRAP_TAB_LAYOUT); // Changed from SCROLL to WRAP
+        configureSectionTabs(tab);
+
+        javax.swing.table.AbstractTableModel scheduleModel = sessionManager.isStudent()
+                ? new StudentScheduleTableModel()
+                : sessionManager.isTeacher()
+                ? new TeacherScheduleTableModel()
+                : new ScheduleTableModel();
+
+        SchedulePanel schedulePanel = new SchedulePanel(sm,
+            () -> {
+                try {
+                    if (sessionManager.isStudent()) {
+                        return loadSchedulesForCurrentStudent();
+                    }
+                    if (sessionManager.isTeacher()) {
+                        return loadSchedulesForCurrentTeacher();
+                    }
+                    return sm.getScheduleService().findAll();
+                }
+                catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
+            }, scheduleModel);
 
         try {
             GenericPanel<Course> coursePanel = new GenericPanel<>(Course.class, new CourseTableModel(),
@@ -96,7 +205,7 @@ public class MainFrame extends JFrame {
         }
 
         try {
-            GenericPanel<ClassEntity> classPanel = new GenericPanel<>(ClassEntity.class, new ClassTableModel(),
+            ClassPanel classPanel = new ClassPanel(sm,
                 () -> {
                     try {
                         if (sessionManager.isTeacher()) {
@@ -105,7 +214,8 @@ public class MainFrame extends JFrame {
                         return sm.getClassService().findAll();
                     }
                     catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
-                });
+                },
+                schedulePanel);
             tab.addTab("Lớp học", classPanel);
             panelRegistry.put("ClassEntity", classPanel);
         } catch (Exception e) { 
@@ -113,19 +223,6 @@ public class MainFrame extends JFrame {
         }
 
         try {
-            GenericPanel<Schedule> schedulePanel = new GenericPanel<>(Schedule.class, new ScheduleTableModel(),
-                () -> {
-                    try {
-                        if (sessionManager.isStudent()) {
-                            return loadSchedulesForCurrentStudent();
-                        }
-                        if (sessionManager.isTeacher()) {
-                            return loadSchedulesForCurrentTeacher();
-                        }
-                        return sm.getScheduleService().findAll();
-                    }
-                    catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
-                });
             tab.addTab("Lịch học", schedulePanel);
             panelRegistry.put("Schedule", schedulePanel);
         } catch (Exception e) {
@@ -201,7 +298,10 @@ public class MainFrame extends JFrame {
     // =============== NHÓM 2: VẬN HÀNH (OPERATIONS) ===============
     private JTabbedPane buildOperationsTab() {
         JTabbedPane tab = new JTabbedPane(JTabbedPane.TOP);
-        tab.setTabLayoutPolicy(JTabbedPane.WRAP_TAB_LAYOUT);
+        configureSectionTabs(tab);
+
+        PersonalInfoPanel personalInfoPanel = new PersonalInfoPanel(sm, sessionManager);
+        tab.addTab("Thông tin cá nhân", personalInfoPanel);
 
         // Rooms
         GenericPanel<Room> roomPanel = new GenericPanel<>(Room.class, new RoomTableModel(),
@@ -212,23 +312,16 @@ public class MainFrame extends JFrame {
         tab.addTab("Phòng học", roomPanel);
         panelRegistry.put("Room", roomPanel);
 
-        // Teachers
-        GenericPanel<Teacher> teacherPanel = new GenericPanel<>(Teacher.class, new TeacherTableModel(),
-            () -> {
-                try {
-                    if (sessionManager.isTeacher()) {
-                        Long teacherId = sessionManager.getCurrentTeacherId();
-                        if (teacherId == null) return Collections.emptyList();
-                        return sm.getTeacherService().findById(teacherId)
-                                .map(List::of)
-                                .orElseGet(Collections::emptyList);
-                    }
-                    return sm.getTeacherService().findAll();
-                }
-                catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
-            });
-        tab.addTab(sessionManager.isTeacher() ? "Hồ sơ giáo viên" : "Giáo viên", teacherPanel);
-        panelRegistry.put("Teacher", teacherPanel);
+        if (!sessionManager.isTeacher()) {
+            // Teachers
+            GenericPanel<Teacher> teacherPanel = new GenericPanel<>(Teacher.class, new TeacherTableModel(),
+                () -> {
+                    try { return sm.getTeacherService().findAll(); }
+                    catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
+                });
+            tab.addTab("Giáo viên", teacherPanel);
+            panelRegistry.put("Teacher", teacherPanel);
+        }
 
         // Staffs
         GenericPanel<Staff> staffPanel = new GenericPanel<>(Staff.class, new StaffTableModel(),
@@ -239,23 +332,16 @@ public class MainFrame extends JFrame {
         tab.addTab("Nhân viên", staffPanel);
         panelRegistry.put("Staff", staffPanel);
 
-        // Students
-        GenericPanel<Student> studentPanel = new GenericPanel<>(Student.class, new StudentTableModel(),
-            () -> {
-                try {
-                    if (sessionManager.isStudent()) {
-                        Long studentId = sessionManager.getCurrentStudentId();
-                        if (studentId == null) return Collections.emptyList();
-                        return sm.getStudentService().findById(studentId)
-                                .map(List::of)
-                                .orElseGet(Collections::emptyList);
-                    }
-                    return sm.getStudentService().findAll();
-                }
-                catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
-            });
-        tab.addTab(sessionManager.isStudent() ? "Hồ sơ cá nhân" : "Học viên", studentPanel);
-        panelRegistry.put("Student", studentPanel);
+        if (!sessionManager.isStudent()) {
+            // Students
+            GenericPanel<Student> studentPanel = new GenericPanel<>(Student.class, new StudentTableModel(),
+                () -> {
+                    try { return sm.getStudentService().findAll(); }
+                    catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
+                });
+            tab.addTab("Học viên", studentPanel);
+            panelRegistry.put("Student", studentPanel);
+        }
 
         return tab;
     }
@@ -263,7 +349,7 @@ public class MainFrame extends JFrame {
     // =============== NHÓM 3: TÀI CHÍNH (FINANCE) ===============
     private JTabbedPane buildFinanceTab() {
         JTabbedPane tab = new JTabbedPane(JTabbedPane.TOP);
-        tab.setTabLayoutPolicy(JTabbedPane.WRAP_TAB_LAYOUT);
+        configureSectionTabs(tab);
 
         // Invoices
         GenericPanel<Invoice> invoicePanel = new GenericPanel<>(Invoice.class, new InvoiceTableModel(),
@@ -303,14 +389,10 @@ public class MainFrame extends JFrame {
     // =============== NHÓM 4: HỆ THỐNG (SYSTEM) ===============
     private JTabbedPane buildSystemTab() {
         JTabbedPane tab = new JTabbedPane(JTabbedPane.TOP);
-        tab.setTabLayoutPolicy(JTabbedPane.WRAP_TAB_LAYOUT);
+        configureSectionTabs(tab);
 
         // User Accounts
-        GenericPanel<UserAccount> accountPanel = new GenericPanel<>(UserAccount.class,
-            new GenericTableModel<>(
-                new String[]{"Tên đăng nhập", "Quyền hạn", "Hoạt động"},
-                new String[]{"username", "role", "isActive"}
-            ),
+        UserAccountPanel accountPanel = new UserAccountPanel(sm,
             () -> {
                 try { return sm.getUserAccountService().findAll(); }
                 catch (Exception e) { e.printStackTrace(); return Collections.emptyList(); }
@@ -389,9 +471,9 @@ public class MainFrame extends JFrame {
         JTabbedPane operationsTab = findMainTabPane("Vận hành");
         if (operationsTab != null) {
             removeTabInContainer(operationsTab, "Phòng học");
+            removeTabInContainer(operationsTab, "Giáo viên");
             removeTabInContainer(operationsTab, "Nhân viên");
             removeTabInContainer(operationsTab, "Học viên");
-            removeTabInContainer(operationsTab, "Hồ sơ cá nhân");
         }
 
         // Chỉ sửa điểm & điểm danh
@@ -438,6 +520,7 @@ public class MainFrame extends JFrame {
             removeTabInContainer(operationsTab, "Phòng học");
             removeTabInContainer(operationsTab, "Giáo viên");
             removeTabInContainer(operationsTab, "Nhân viên");
+            removeTabInContainer(operationsTab, "Học viên");
         }
 
         // Ẩn tất cả nút bấm ở các tab có quyền
@@ -493,6 +576,9 @@ public class MainFrame extends JFrame {
         Map<Long, Schedule> schedulesById = new LinkedHashMap<>();
 
         for (Enrollment enrollment : enrollments) {
+            if (enrollment.getStatus() == Enrollment.EnrollStatus.Dropped) {
+                continue;
+            }
             if (enrollment.getClassEntity() == null || enrollment.getClassEntity().getId() <= 0) {
                 continue;
             }
@@ -590,6 +676,12 @@ public class MainFrame extends JFrame {
         mFile.add(miExit);
 
         JMenu mReports = new JMenu("Báo cáo");
+        if (sessionManager.isAdmin()) {
+            JMenuItem miDashboard = new JMenuItem("Mở trang Báo cáo");
+            miDashboard.addActionListener(e -> switchToReportTab());
+            mReports.add(miDashboard);
+            mReports.addSeparator();
+        }
         JMenuItem miStream = new JMenuItem("Phân tích Stream API");
         miStream.addActionListener(e -> new StreamReportsDialog(this).setVisible(true));
         mReports.add(miStream);
@@ -605,6 +697,18 @@ public class MainFrame extends JFrame {
         }
         bar.add(mHelp);
         return bar;
+    }
+
+    private void switchToReportTab() {
+        for (int i = 0; i < mainTabs.getTabCount(); i++) {
+            if ("Báo cáo".equals(mainTabs.getTitleAt(i))) {
+                mainTabs.setSelectedIndex(i);
+                if (adminReportPanel != null) {
+                    adminReportPanel.loadData();
+                }
+                return;
+            }
+        }
     }
 
     private void showAbout() {

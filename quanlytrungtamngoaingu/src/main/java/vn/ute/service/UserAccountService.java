@@ -13,4 +13,10 @@ public interface UserAccountService extends Service<UserAccount, Long> {
     
     // Đổi mật khẩu
     void updatePassword(Long accountId, String newPassword) throws Exception;
+
+    // Khóa/mở khóa tài khoản
+    void setAccountActive(Long accountId, boolean active) throws Exception;
+
+    // Đổi quyền tài khoản
+    void updateRole(Long accountId, UserAccount.UserRole role) throws Exception;
 }

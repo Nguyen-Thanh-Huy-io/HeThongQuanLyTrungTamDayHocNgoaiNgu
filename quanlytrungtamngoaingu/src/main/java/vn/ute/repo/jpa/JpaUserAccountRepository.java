@@ -44,6 +44,13 @@ public class JpaUserAccountRepository extends AbstractJpaRepository<UserAccount,
     }
 
     @Override
+    public Optional<UserAccount> findByStaffId(EntityManager em,Long staffId) {
+        return em.createQuery("SELECT u FROM UserAccount u WHERE u.staff.id = :staffId", UserAccount.class)
+                .setParameter("staffId", staffId)
+                .getResultStream().findFirst();
+    }
+
+    @Override
     public boolean isAccountActive(EntityManager em,String username) {
         return em.createQuery("SELECT u.isActive FROM UserAccount u WHERE u.username = :username", Boolean.class)
                 .setParameter("username", username)

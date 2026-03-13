@@ -83,6 +83,40 @@ public Optional<UserAccount> authenticate(String username, String password) thro
     }
 
     @Override
+    public void setAccountActive(Long accountId, boolean active) throws Exception {
+        TransactionManager.executeInTransaction((EntityManager em) -> {
+            UserAccount account = accountRepo.findById(em, accountId)
+                    .orElseThrow(() -> new Exception("Không tìm thấy tài khoản!"));
+            account.setActive(active);
+            accountRepo.update(em, account);
+            return null;
+        });
+    }
+
+    @Override
+    public void updateRole(Long accountId, UserAccount.UserRole role) throws Exception {
+        TransactionManager.executeInTransaction((EntityManager em) -> {
+            if (role == null) {
+                throw new Exception("Quyền tài khoản không hợp lệ!");
+            }
+
+            UserAccount account = accountRepo.findById(em, accountId)
+                    .orElseThrow(() -> new Exception("Không tìm thấy tài khoản!"));
+
+            if (role == UserAccount.UserRole.Teacher && account.getTeacher() == null) {
+                throw new Exception("Tài khoản này không liên kết giáo viên, không thể đổi sang quyền Teacher.");
+            }
+            if (role == UserAccount.UserRole.Student && account.getStudent() == null) {
+                throw new Exception("Tài khoản này không liên kết học viên, không thể đổi sang quyền Student.");
+            }
+
+            account.setRole(role);
+            accountRepo.update(em, account);
+            return null;
+        });
+    }
+
+    @Override
     public Optional<UserAccount> getByStudent(Long studentId) throws Exception {
         return TransactionManager.execute((EntityManager em) -> accountRepo.findByStudentId(em, studentId));
     }

@@ -1,18 +1,16 @@
 package vn.ute.ui;
 
 import vn.ute.db.TransactionManager;
+import vn.ute.model.Staff;
 import vn.ute.model.Student;
 import vn.ute.model.Teacher;
 import vn.ute.service.ServiceManager;
 
 import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
-import java.awt.*;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.function.Supplier;
-
-import vn.ute.ui.UIUtils;
 
 public class GenericPanel<T> extends BasePanel<T> {
     private Supplier<List<T>> dataLoader;
@@ -125,13 +123,17 @@ public class GenericPanel<T> extends BasePanel<T> {
             return;
         }
 
-        TransactionManager.executeInTransaction(em -> {
-            if (entityType == Teacher.class) {
-                em.createQuery("DELETE FROM UserAccount u WHERE u.teacher.id = :id")
-                        .setParameter("id", id)
-                        .executeUpdate();
-            }
+        if (entityType == Teacher.class) {
+            ServiceManager.getInstance().getTeacherService().deleteTeacher(id);
+            return;
+        }
 
+        if (entityType == Staff.class) {
+            ServiceManager.getInstance().getStaffService().deleteStaff(id);
+            return;
+        }
+
+        TransactionManager.executeInTransaction(em -> {
             Object entity = em.find(entityType, id);
             if (entity == null) {
                 throw new Exception("Không tìm thấy bản ghi cần xóa (ID=" + id + ").");
