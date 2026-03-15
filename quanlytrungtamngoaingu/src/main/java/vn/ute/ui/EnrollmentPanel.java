@@ -121,19 +121,19 @@ public class EnrollmentPanel extends BasePanel<Enrollment> {
         }
 
         try {
-            List<ClassEntity> availableClasses = loadAvailableClassesForStudent(studentId);
-            if (availableClasses.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Hiện không có lớp phù hợp để đăng ký.");
+            List<Course> availableCourses = loadAvailableCoursesForStudent(studentId);
+            if (availableCourses.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Hiện không có khóa học phù hợp để đăng ký.");
                 return;
             }
 
-            JComboBox<ClassEntity> classComboBox = new JComboBox<>(availableClasses.toArray(new ClassEntity[0]));
-            classComboBox.setRenderer(new DefaultListCellRenderer() {
+            JComboBox<Course> courseComboBox = new JComboBox<>(availableCourses.toArray(new Course[0]));
+            courseComboBox.setRenderer(new DefaultListCellRenderer() {
                 @Override
                 public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
                     super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                    if (value instanceof ClassEntity classEntity) {
-                        setText(formatClassLabel(classEntity));
+                    if (value instanceof Course course) {
+                        setText(course.getCourseName() + " - " + course.getFee() + " VND");
                     }
                     return this;
                 }
@@ -141,8 +141,8 @@ public class EnrollmentPanel extends BasePanel<Enrollment> {
 
             int option = JOptionPane.showConfirmDialog(
                     this,
-                    classComboBox,
-                    "Chọn lớp muốn đăng ký",
+                    courseComboBox,
+                    "Chọn khóa học muốn đăng ký",
                     JOptionPane.OK_CANCEL_OPTION,
                     JOptionPane.PLAIN_MESSAGE
             );
@@ -150,55 +150,38 @@ public class EnrollmentPanel extends BasePanel<Enrollment> {
                 return;
             }
 
-            ClassEntity selectedClass = (ClassEntity) classComboBox.getSelectedItem();
-            if (selectedClass == null) {
-                JOptionPane.showMessageDialog(this, "Vui lòng chọn lớp học.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            Course selectedCourse = (Course) courseComboBox.getSelectedItem();
+            if (selectedCourse == null) {
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn khóa học.", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
-            Enrollment enrollment = new Enrollment();
-            Student student = new Student();
-            student.setId(studentId);
-            enrollment.setStudent(student);
-            enrollment.setClassEntity(selectedClass);
-
-            serviceManager.getEnrollmentService().enrollStudent(enrollment);
-            JOptionPane.showMessageDialog(this, "Đăng ký lớp thành công.");
+            serviceManager.getEnrollmentService().enrollStudentInCourse(studentId, selectedCourse.getId());
+            JOptionPane.showMessageDialog(this, "Đăng ký khóa học thành công. Lịch học và hóa đơn đã được tạo tự động.");
             reloadData();
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Đăng ký lớp thất bại: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Đăng ký khóa học thất bại: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    private List<ClassEntity> loadAvailableClassesForStudent(Long studentId) throws Exception {
-        List<ClassEntity> classes = serviceManager.getClassService().findAll();
+    private List<Course> loadAvailableCoursesForStudent(Long studentId) throws Exception {
+        List<Course> courses = serviceManager.getCourseService().findAll();
         List<Enrollment> enrollments = serviceManager.getEnrollmentService().getByStudent(studentId);
 
-        Set<Long> enrolledClassIds = new HashSet<>();
+        Set<Long> enrolledCourseIds = new HashSet<>();
         for (Enrollment enrollment : enrollments) {
-            if (enrollment.getStatus() != Enrollment.EnrollStatus.Dropped && enrollment.getClassEntity() != null) {
-                enrolledClassIds.add(enrollment.getClassEntity().getId());
+            if (enrollment.getStatus() != Enrollment.EnrollStatus.Dropped && enrollment.getClassEntity() != null && enrollment.getClassEntity().getCourse() != null) {
+                enrolledCourseIds.add(enrollment.getClassEntity().getCourse().getId());
             }
         }
 
-        List<ClassEntity> available = classes.stream()
-                .filter(clazz -> clazz.getId() > 0)
-                .filter(clazz -> !enrolledClassIds.contains(clazz.getId()))
-                .filter(clazz -> clazz.getStatus() == ClassEntity.ClassStatus.Open
-                        || clazz.getStatus() == ClassEntity.ClassStatus.Planned
-                        || clazz.getStatus() == ClassEntity.ClassStatus.Ongoing)
-                .filter(clazz -> clazz.getCourse() == null || clazz.getCourse().getStatus() == Course.Status.Active)
-                .sorted(Comparator.comparing(ClassEntity::getStartDate, Comparator.nullsLast(Comparator.naturalOrder()))
-                        .thenComparing(ClassEntity::getClassName, Comparator.nullsLast(String::compareToIgnoreCase)))
+        List<Course> available = courses.stream()
+                .filter(course -> course.getId() > 0)
+                .filter(course -> !enrolledCourseIds.contains(course.getId()))
+                .filter(course -> course.getStatus() == Course.Status.Active)
+                .sorted(Comparator.comparing(Course::getCourseName))
                 .toList();
 
         return available.isEmpty() ? Collections.emptyList() : available;
-    }
-
-    private String formatClassLabel(ClassEntity classEntity) {
-        String courseName = classEntity.getCourse() != null ? classEntity.getCourse().getCourseName() : "Chưa gán khóa học";
-        String teacherName = classEntity.getTeacher() != null ? classEntity.getTeacher().getFullName() : "Chưa phân công GV";
-        String startDate = classEntity.getStartDate() != null ? classEntity.getStartDate().toString() : "Chưa có ngày khai giảng";
-        return classEntity.getClassName() + " | " + courseName + " | GV: " + teacherName + " | Bắt đầu: " + startDate;
     }
 }

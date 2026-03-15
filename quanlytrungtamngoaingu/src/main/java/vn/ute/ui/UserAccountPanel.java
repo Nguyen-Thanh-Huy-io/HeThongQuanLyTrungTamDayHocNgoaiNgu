@@ -5,17 +5,17 @@ import vn.ute.service.ServiceManager;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
+import javax.swing.JButton;
+import java.awt.*;
 import java.util.List;
 import java.util.function.Supplier;
+import javax.swing.Box;
 
 public class UserAccountPanel extends BasePanel<UserAccount> {
-    private static final String DEFAULT_ADMIN_PASSWORD = "admin123456";
-    private static final String DEFAULT_STAFF_PASSWORD = "nv123456";
-    private static final String DEFAULT_TEACHER_PASSWORD = "gv123456";
-    private static final String DEFAULT_STUDENT_PASSWORD = "hs123456";
 
     private final ServiceManager serviceManager;
     private final Supplier<List<UserAccount>> dataLoader;
+    private JButton btnCreateAccount;
 
     public UserAccountPanel(ServiceManager serviceManager, Supplier<List<UserAccount>> dataLoader) {
         super(new GenericTableModel<>(
@@ -24,6 +24,12 @@ public class UserAccountPanel extends BasePanel<UserAccount> {
         ));
         this.serviceManager = serviceManager;
         this.dataLoader = dataLoader;
+
+        // Thêm nút Tạo tài khoản
+        btnCreateAccount = UIUtils.createPrimaryButton("Tạo tài khoản");
+        btnCreateAccount.addActionListener(e -> onCreateAccount());
+        toolbar.add(btnCreateAccount, 0); // Thêm vào đầu toolbar
+        toolbar.add(Box.createHorizontalStrut(6), 1);
 
         btnAdd.setText("Reset MK");
         btnEdit.setText("Khóa/Mở");
@@ -47,11 +53,16 @@ public class UserAccountPanel extends BasePanel<UserAccount> {
             return;
         }
 
-        String defaultPassword = getDefaultPasswordByRole(selected.getRole());
+        String newPassword = JOptionPane.showInputDialog(this, "Nhập mật khẩu mới cho tài khoản '" + selected.getUsername() + "':");
+        if (newPassword == null || newPassword.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Mật khẩu không được để trống.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
         int confirm = JOptionPane.showConfirmDialog(
                 this,
-                "Reset mật khẩu tài khoản '" + selected.getUsername() + "' về mặc định?",
-                "Xác nhận reset mật khẩu",
+                "Đổi mật khẩu tài khoản '" + selected.getUsername() + "'?",
+                "Xác nhận đổi mật khẩu",
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.WARNING_MESSAGE
         );
@@ -61,10 +72,58 @@ public class UserAccountPanel extends BasePanel<UserAccount> {
         }
 
         try {
-            serviceManager.getUserAccountService().updatePassword(selected.getId(), defaultPassword);
-            JOptionPane.showMessageDialog(this, "Reset mật khẩu thành công. Mật khẩu mặc định: " + defaultPassword);
+            serviceManager.getUserAccountService().updatePassword(selected.getId(), newPassword.trim());
+            JOptionPane.showMessageDialog(this, "Đổi mật khẩu thành công.");
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Reset mật khẩu thất bại: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Đổi mật khẩu thất bại: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void onCreateAccount() {
+        // Dialog nhập thông tin tài khoản mới
+        String username = JOptionPane.showInputDialog(this, "Nhập tên đăng nhập:");
+        if (username == null || username.trim().isEmpty()) {
+            return;
+        }
+
+        UserAccount.UserRole[] roles = UserAccount.UserRole.values();
+        UserAccount.UserRole selectedRole = (UserAccount.UserRole) JOptionPane.showInputDialog(
+                this,
+                "Chọn quyền cho tài khoản:",
+                "Chọn quyền",
+                JOptionPane.PLAIN_MESSAGE,
+                null,
+                roles,
+                UserAccount.UserRole.Student
+        );
+
+        if (selectedRole == null) {
+            return;
+        }
+
+        String password = JOptionPane.showInputDialog(this, "Nhập mật khẩu cho tài khoản:");
+        if (password == null || password.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Mật khẩu không được để trống.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "Tạo tài khoản '" + username + "' với quyền " + selectedRole + " và mật khẩu đã nhập?",
+                "Xác nhận tạo tài khoản",
+                JOptionPane.YES_NO_OPTION
+        );
+
+        if (confirm != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        try {
+            serviceManager.getUserAccountService().createAccount(username.trim(), password.trim(), selectedRole);
+            JOptionPane.showMessageDialog(this, "Tạo tài khoản thành công!");
+            reloadData();
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Tạo tài khoản thất bại: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -139,16 +198,19 @@ public class UserAccountPanel extends BasePanel<UserAccount> {
         return ((GenericTableModel<UserAccount>) tableModel).getRow(row);
     }
 
-    private String getDefaultPasswordByRole(UserAccount.UserRole role) {
-        if (role == UserAccount.UserRole.Admin) {
-            return DEFAULT_ADMIN_PASSWORD;
+    @Override
+    public void setButtonEnabled(String buttonName, boolean enabled) {
+        super.setButtonEnabled(buttonName, enabled);
+        if ("create".equalsIgnoreCase(buttonName)) {
+            btnCreateAccount.setEnabled(enabled);
         }
-        if (role == UserAccount.UserRole.Teacher) {
-            return DEFAULT_TEACHER_PASSWORD;
+    }
+
+    @Override
+    public void setButtonVisible(String buttonName, boolean visible) {
+        super.setButtonVisible(buttonName, visible);
+        if ("create".equalsIgnoreCase(buttonName)) {
+            btnCreateAccount.setVisible(visible);
         }
-        if (role == UserAccount.UserRole.Student) {
-            return DEFAULT_STUDENT_PASSWORD;
-        }
-        return DEFAULT_STAFF_PASSWORD;
     }
 }

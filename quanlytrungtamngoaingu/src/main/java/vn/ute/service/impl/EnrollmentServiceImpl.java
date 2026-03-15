@@ -5,23 +5,47 @@ import vn.ute.db.TransactionManager;
 import vn.ute.model.Enrollment;
 import vn.ute.model.ClassEntity;
 import vn.ute.model.Student;
+import vn.ute.model.Course;
+import vn.ute.model.Teacher;
+import vn.ute.model.Room;
+import vn.ute.model.Schedule;
+import vn.ute.model.Invoice;
 import vn.ute.repo.EnrollmentRepository;
 import vn.ute.repo.ClassRepository;
 import vn.ute.repo.StudentRepository;
+import vn.ute.repo.CourseRepository;
+import vn.ute.repo.TeacherRepository;
+import vn.ute.repo.RoomRepository;
+import vn.ute.repo.ScheduleRepository;
+import vn.ute.repo.InvoiceRepository;
 import vn.ute.service.EnrollmentService;
 import java.util.List;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.Random;
 
 public class EnrollmentServiceImpl extends AbstractService<Enrollment, Long> implements EnrollmentService {
     private final EnrollmentRepository enrollmentRepo;
     private final ClassRepository classRepo;
     private final StudentRepository studentRepo;
+    private final CourseRepository courseRepo;
+    private final TeacherRepository teacherRepo;
+    private final RoomRepository roomRepo;
+    private final ScheduleRepository scheduleRepo;
+    private final InvoiceRepository invoiceRepo;
 
-    public EnrollmentServiceImpl(EnrollmentRepository enrollmentRepo, ClassRepository classRepo, StudentRepository studentRepo) {
+    public EnrollmentServiceImpl(EnrollmentRepository enrollmentRepo, ClassRepository classRepo, StudentRepository studentRepo,
+                                 CourseRepository courseRepo, TeacherRepository teacherRepo, RoomRepository roomRepo,
+                                 ScheduleRepository scheduleRepo, InvoiceRepository invoiceRepo) {
         super(enrollmentRepo);
         this.enrollmentRepo = enrollmentRepo;
         this.classRepo = classRepo;
         this.studentRepo = studentRepo;
+        this.courseRepo = courseRepo;
+        this.teacherRepo = teacherRepo;
+        this.roomRepo = roomRepo;
+        this.scheduleRepo = scheduleRepo;
+        this.invoiceRepo = invoiceRepo;
     }
 
     @Override
@@ -128,6 +152,91 @@ public class EnrollmentServiceImpl extends AbstractService<Enrollment, Long> imp
                 throw new Exception("Trạng thái ghi danh không hợp lệ: " + status);
             }
             return enrollmentRepo.findByStatus(em, parsedStatus);
+        });
+    }
+
+    @Override
+    public Long enrollStudentInCourse(Long studentId, Long courseId) throws Exception {
+        return TransactionManager.executeInTransaction((EntityManager em) -> {
+            // Kiểm tra student
+            Student student = studentRepo.findById(em, studentId)
+                    .orElseThrow(() -> new Exception("Học viên không tồn tại!"));
+            if (student.getStatus() != Student.Status.Active) {
+                throw new Exception("Học viên đang không hoạt động!");
+            }
+
+            // Kiểm tra course
+            Course course = courseRepo.findById(em, courseId)
+                    .orElseThrow(() -> new Exception("Khóa học không tồn tại!"));
+            if (course.getStatus() != Course.Status.Active) {
+                throw new Exception("Khóa học không hoạt động!");
+            }
+
+            // Kiểm tra đã đăng ký chưa
+            List<Enrollment> existingEnrollments = enrollmentRepo.findByStudentId(em, studentId);
+            for (Enrollment e : existingEnrollments) {
+                if (e.getClassEntity().getCourse().getId() == courseId && e.getStatus() == Enrollment.EnrollStatus.Enrolled) {
+                    throw new Exception("Học viên đã đăng ký khóa học này!");
+                }
+            }
+
+            // Chọn teacher ngẫu nhiên
+            List<Teacher> teachers = teacherRepo.findAll(em);
+            if (teachers.isEmpty()) {
+                throw new Exception("Không có giáo viên nào!");
+            }
+            Teacher teacher = teachers.get(new Random().nextInt(teachers.size()));
+
+            // Chọn room ngẫu nhiên
+            List<Room> rooms = roomRepo.findAll(em);
+            if (rooms.isEmpty()) {
+                throw new Exception("Không có phòng học nào!");
+            }
+            Room room = rooms.get(new Random().nextInt(rooms.size()));
+
+            // Tạo ClassEntity mới
+            ClassEntity classEntity = new ClassEntity();
+            classEntity.setClassName(course.getCourseName() + " - Lớp " + (classRepo.findAll(em).size() + 1));
+            classEntity.setCourse(course);
+            classEntity.setTeacher(teacher);
+            classEntity.setStartDate(LocalDate.now());
+            classEntity.setEndDate(LocalDate.now().plusWeeks(course.getDuration() != null ? course.getDuration() : 4));
+            classEntity.setMaxStudent(20);
+            classEntity.setRoom(room);
+            classEntity.setStatus(ClassEntity.ClassStatus.Open);
+            classRepo.insert(em, classEntity);
+
+            // Tạo Schedule ngẫu nhiên (ví dụ 3 buổi/tuần)
+            Random rand = new Random();
+            LocalDate currentDate = LocalDate.now();
+            for (int i = 0; i < 12; i++) { // 12 buổi
+                Schedule schedule = new Schedule();
+                schedule.setClassEntity(classEntity);
+                schedule.setStudyDate(currentDate.plusDays(i * 7 + rand.nextInt(7))); // Ngẫu nhiên trong tuần
+                schedule.setStartTime(LocalTime.of(9 + rand.nextInt(8), 0)); // 9-16h
+                schedule.setEndTime(schedule.getStartTime().plusHours(2));
+                schedule.setRoom(room);
+                scheduleRepo.insert(em, schedule);
+            }
+
+            // Tạo Enrollment
+            Enrollment enrollment = new Enrollment();
+            enrollment.setStudent(student);
+            enrollment.setClassEntity(classEntity);
+            enrollment.setEnrollmentDate(LocalDate.now());
+            enrollment.setStatus(Enrollment.EnrollStatus.Enrolled);
+            enrollmentRepo.insert(em, enrollment);
+
+            // Tạo Invoice
+            Invoice invoice = new Invoice();
+            invoice.setStudent(student);
+            invoice.setTotalAmount(course.getFee());
+            invoice.setIssueDate(LocalDate.now());
+            invoice.setStatus(Invoice.InvoiceStatus.Issued);
+            invoice.setNote("Hóa đơn cho khóa học: " + course.getCourseName());
+            invoiceRepo.insert(em, invoice);
+
+            return enrollment.getId();
         });
     }
 }

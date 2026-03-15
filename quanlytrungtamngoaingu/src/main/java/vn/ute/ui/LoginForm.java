@@ -10,6 +10,7 @@ import java.util.Optional;
 
 import vn.ute.ui.UIUtils;
 
+import vn.ute.model.Student;
 import vn.ute.model.UserAccount;
 import vn.ute.service.ServiceManager;
 import vn.ute.ui.SessionManager;
@@ -99,6 +100,21 @@ public class LoginForm extends JFrame {
             }
 
             UserAccount user = userOpt.get();
+
+            // Nếu là Student nhưng chưa được liên kết với Student entity, thử tìm student bằng email/phone
+            if (user.getRole() == UserAccount.UserRole.Student && user.getStudent() == null) {
+                try {
+                    Optional<Student> studentOpt = Optional.empty();
+                    studentOpt = serviceManager.getStudentService().findByEmail(user.getUsername());
+                    if (studentOpt.isEmpty()) {
+                        studentOpt = serviceManager.getStudentService().findByPhone(user.getUsername());
+                    }
+                    studentOpt.ifPresent(user::setStudent);
+                } catch (Exception ex) {
+                    // Nếu không tìm được, vẫn tiến hành đăng nhập nhưng sẽ thông báo khi cần
+                }
+            }
+
             sessionManager = SessionManager.getInstance();
             sessionManager.setCurrentUser(user);
 

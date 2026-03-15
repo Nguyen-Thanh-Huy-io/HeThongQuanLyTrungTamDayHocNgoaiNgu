@@ -125,4 +125,23 @@ public Optional<UserAccount> authenticate(String username, String password) thro
     public Optional<UserAccount> getByTeacher(Long teacherId) throws Exception {
         return TransactionManager.execute((EntityManager em) -> accountRepo.findByTeacherId(em, teacherId));
     }
+
+    @Override
+    public UserAccount createAccount(String username, String password, UserAccount.UserRole role) throws Exception {
+        return TransactionManager.executeInTransaction((EntityManager em) -> {
+            // Kiểm tra username đã tồn tại
+            if (accountRepo.findByUsername(em, username).isPresent()) {
+                throw new Exception("Tên đăng nhập đã tồn tại!");
+            }
+
+            UserAccount account = new UserAccount();
+            account.setUsername(username);
+            account.setPasswordHash(BCrypt.hashpw(password, BCrypt.gensalt()));
+            account.setRole(role);
+            account.setActive(true);
+
+            accountRepo.insert(em, account);
+            return account;
+        });
+    }
 }

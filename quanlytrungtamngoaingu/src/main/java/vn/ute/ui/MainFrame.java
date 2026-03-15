@@ -431,9 +431,11 @@ public class MainFrame extends JFrame {
             panel.setButtonEnabled("add", true);
             panel.setButtonEnabled("edit", true);
             panel.setButtonEnabled("delete", true);
+            panel.setButtonEnabled("create", true);
             panel.setButtonVisible("add", true);
             panel.setButtonVisible("edit", true);
             panel.setButtonVisible("delete", true);
+            panel.setButtonVisible("create", true);
         }
     }
 

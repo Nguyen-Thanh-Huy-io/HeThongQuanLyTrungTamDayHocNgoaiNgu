@@ -19,4 +19,7 @@ public interface UserAccountService extends Service<UserAccount, Long> {
 
     // Đổi quyền tài khoản
     void updateRole(Long accountId, UserAccount.UserRole role) throws Exception;
+
+    // Tạo tài khoản mới
+    UserAccount createAccount(String username, String password, UserAccount.UserRole role) throws Exception;
 }
