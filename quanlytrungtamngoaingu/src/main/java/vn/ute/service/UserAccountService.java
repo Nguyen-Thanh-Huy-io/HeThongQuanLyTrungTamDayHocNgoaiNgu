@@ -20,6 +20,12 @@ public interface UserAccountService extends Service<UserAccount, Long> {
     // Đổi quyền tài khoản
     void updateRole(Long accountId, UserAccount.UserRole role) throws Exception;
 
-    // Tạo tài khoản mới
+    // Tạo tài khoản mới (không liên kết entity — chỉ dùng cho Admin)
     UserAccount createAccount(String username, String password, UserAccount.UserRole role) throws Exception;
+
+    /**
+     * Tạo tài khoản và liên kết ngay với Teacher / Student / Staff.
+     * linkedEntityId là teacher_id / student_id / staff_id tương ứng với role.
+     */
+    UserAccount createAccount(String username, String password, UserAccount.UserRole role, Long linkedEntityId) throws Exception;
 }

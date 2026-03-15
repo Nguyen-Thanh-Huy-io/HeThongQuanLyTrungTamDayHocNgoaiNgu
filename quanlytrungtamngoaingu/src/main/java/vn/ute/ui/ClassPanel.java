@@ -7,6 +7,7 @@ import vn.ute.model.Teacher;
 import vn.ute.service.ServiceManager;
 
 import javax.swing.DefaultListCellRenderer;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -15,6 +16,7 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import java.awt.Component;
+import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -142,8 +144,10 @@ public class ClassPanel extends BasePanel<ClassEntity> {
         teacherComboBox.setRenderer(new TeacherRenderer());
         teacherComboBox.insertItemAt(null, 0);
         teacherComboBox.setSelectedIndex(0);
-        JTextField startDateField = new JTextField(20);
-        JTextField endDateField = new JTextField(20);
+        DatePickerField startDatePicker = new DatePickerField(LocalDate.now());
+        DatePickerField endDatePicker   = new DatePickerField(LocalDate.now().plusMonths(3));
+        JCheckBox noEndDateCheck = new JCheckBox("Không có ngày kết thúc");
+        noEndDateCheck.addActionListener(e -> endDatePicker.setEnabled(!noEndDateCheck.isSelected()));
         JTextField maxStudentField = new JTextField(20);
         JComboBox<Room> roomComboBox = new JComboBox<>(rooms.toArray(new Room[0]));
         roomComboBox.setRenderer(new RoomRenderer());
@@ -153,8 +157,13 @@ public class ClassPanel extends BasePanel<ClassEntity> {
             classNameField.setText(existingClass.getClassName());
             selectCourse(courseComboBox, existingClass.getCourse());
             selectTeacher(teacherComboBox, existingClass.getTeacher());
-            startDateField.setText(existingClass.getStartDate() != null ? existingClass.getStartDate().toString() : "");
-            endDateField.setText(existingClass.getEndDate() != null ? existingClass.getEndDate().toString() : "");
+            if (existingClass.getStartDate() != null) startDatePicker.setValue(existingClass.getStartDate());
+            if (existingClass.getEndDate() != null) {
+                endDatePicker.setValue(existingClass.getEndDate());
+            } else {
+                noEndDateCheck.setSelected(true);
+                endDatePicker.setEnabled(false);
+            }
             maxStudentField.setText(String.valueOf(existingClass.getMaxStudent()));
             selectRoom(roomComboBox, existingClass.getRoom());
             statusComboBox.setSelectedItem(existingClass.getStatus());
@@ -183,14 +192,18 @@ public class ClassPanel extends BasePanel<ClassEntity> {
         form.add(teacherComboBox, gbc);
         gbc.gridx = 0;
         gbc.gridy++;
-        form.add(new JLabel("Ngày bắt đầu (yyyy-MM-dd):"), gbc);
+        form.add(new JLabel("Ngày bắt đầu:"), gbc);
         gbc.gridx = 1;
-        form.add(startDateField, gbc);
+        form.add(startDatePicker, gbc);
         gbc.gridx = 0;
         gbc.gridy++;
-        form.add(new JLabel("Ngày kết thúc (yyyy-MM-dd):"), gbc);
+        form.add(new JLabel("Ngày kết thúc:"), gbc);
         gbc.gridx = 1;
-        form.add(endDateField, gbc);
+        JPanel endDateRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        endDateRow.setOpaque(false);
+        endDateRow.add(endDatePicker);
+        endDateRow.add(noEndDateCheck);
+        form.add(endDateRow, gbc);
         gbc.gridx = 0;
         gbc.gridy++;
         form.add(new JLabel("Sĩ số tối đa:"), gbc);
@@ -228,9 +241,8 @@ public class ClassPanel extends BasePanel<ClassEntity> {
         target.setClassName(classNameField.getText().trim());
         target.setCourse(selectedCourse);
         target.setTeacher((Teacher) teacherComboBox.getSelectedItem());
-        target.setStartDate(LocalDate.parse(startDateField.getText().trim()));
-        String endDateRaw = endDateField.getText().trim();
-        target.setEndDate(endDateRaw.isEmpty() ? null : LocalDate.parse(endDateRaw));
+        target.setStartDate(startDatePicker.getValue());
+        target.setEndDate(noEndDateCheck.isSelected() ? null : endDatePicker.getValue());
         target.setMaxStudent(Integer.parseInt(maxStudentField.getText().trim()));
         target.setRoom(selectedRoom);
         target.setStatus((ClassEntity.ClassStatus) statusComboBox.getSelectedItem());

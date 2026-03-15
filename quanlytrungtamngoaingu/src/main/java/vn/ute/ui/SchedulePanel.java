@@ -14,6 +14,7 @@ import javax.swing.JScrollPane;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
+import javax.swing.JComboBox;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -29,18 +30,17 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Comparator;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
 
 public class SchedulePanel extends BasePanel<Schedule> {
     private static final String[] SLOT_LABELS = {"Sáng", "Chiều", "Tối"};
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-    private static final Locale VIETNAMESE = Locale.forLanguageTag("vi-VN");
+    private static final String ALL_CLASSES = "Tất cả lớp";
 
     private final ServiceManager serviceManager;
     private final Supplier<List<Schedule>> dataLoader;
@@ -48,8 +48,11 @@ public class SchedulePanel extends BasePanel<Schedule> {
     private final JLabel weekLabel;
     private final JLabel hintLabel;
     private final JLabel detailLabel;
+    private final JComboBox<ClassFilterOption> classFilterCombo;
+    private final JButton btnBulkCreate;
 
     private List<Schedule> currentSchedules = new ArrayList<>();
+    private List<Schedule> filteredSchedules = new ArrayList<>();
     private Schedule selectedSchedule;
     private LocalDate weekReference = LocalDate.now();
     private final Map<Long, JPanel> scheduleCards = new HashMap<>();
@@ -65,12 +68,20 @@ public class SchedulePanel extends BasePanel<Schedule> {
         this.weekLabel = new JLabel();
         this.hintLabel = new JLabel("Chọn một thẻ lịch học để xem chi tiết hoặc thao tác sửa/xóa.");
         this.detailLabel = new JLabel(" ");
+        this.classFilterCombo = new JComboBox<>();
         this.timetableGrid = new JPanel(new GridBagLayout());
+        this.btnBulkCreate = UIUtils.createSecondaryButton("Tạo hàng loạt");
 
         btnAdd.setText("Tạo lịch");
         table.setAutoCreateRowSorter(true);
         table.setFillsViewportHeight(true);
         table.setRowHeight(28);
+
+        // Add "Tạo hàng loạt" button right after btnAdd (index 1 in toolbar)
+        btnBulkCreate.addActionListener(e -> onBulkCreate(null));
+        toolbar.add(btnBulkCreate, 2);
+        toolbar.add(Box.createHorizontalStrut(6), 3);
+
         setMainContent(buildTimetableContent());
         reloadData();
     }
@@ -86,6 +97,7 @@ public class SchedulePanel extends BasePanel<Schedule> {
             SwingUtilities.invokeLater(() -> {
                 currentSchedules = normalized;
                 ((GenericTableModel<Schedule>) tableModel).setData(normalized);
+                refreshClassFilterOptions();
                 if (selectedSchedule != null) {
                     selectedSchedule = currentSchedules.stream()
                             .filter(item -> item.getId() == selectedSchedule.getId())
@@ -106,11 +118,56 @@ public class SchedulePanel extends BasePanel<Schedule> {
         }
     }
 
-    public void openCreateForClass(ClassEntity classEntity) {
-        boolean saved = new ScheduleDialog(SwingUtilities.getWindowAncestor(this), serviceManager, null, classEntity).open();
-        if (saved) {
-            JOptionPane.showMessageDialog(this, "Tạo lịch học thành công.");
+    private void onBulkCreate(ClassEntity preselectedClass) {
+        Window owner = SwingUtilities.getWindowAncestor(this);
+        BulkScheduleDialog dialog = new BulkScheduleDialog(owner, serviceManager, preselectedClass);
+        dialog.setVisible(true);
+        if (dialog.isSaved()) {
             reloadData();
+        }
+    }
+
+    public void openCreateForClass(ClassEntity classEntity) {
+        // Ask user: single schedule or bulk?
+        Object[] options = {"Tạo một lịch", "Tạo hàng loạt", "Hủy"};
+        int choice = JOptionPane.showOptionDialog(
+                this,
+                "Bạn muốn tạo lịch học cho lớp \"" + classEntity.getClassName() + "\" như thế nào?",
+                "Tạo lịch học",
+                JOptionPane.YES_NO_CANCEL_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null, options, options[1]);
+
+        if (choice == 0) {
+            boolean saved = new ScheduleDialog(SwingUtilities.getWindowAncestor(this), serviceManager, null, classEntity).open();
+            if (saved) {
+                JOptionPane.showMessageDialog(this, "Tạo lịch học thành công.");
+                reloadData();
+            }
+        } else if (choice == 1) {
+            onBulkCreate(classEntity);
+        }
+    }
+
+    @Override
+    public void setButtonVisible(String buttonName, boolean visible) {
+        super.setButtonVisible(buttonName, visible);
+        if ("add".equalsIgnoreCase(buttonName) && btnBulkCreate != null) {
+            btnBulkCreate.setVisible(visible);
+        }
+        if ("bulk".equalsIgnoreCase(buttonName) && btnBulkCreate != null) {
+            btnBulkCreate.setVisible(visible);
+        }
+    }
+
+    @Override
+    public void setButtonEnabled(String buttonName, boolean enabled) {
+        super.setButtonEnabled(buttonName, enabled);
+        if ("add".equalsIgnoreCase(buttonName) && btnBulkCreate != null) {
+            btnBulkCreate.setEnabled(enabled);
+        }
+        if ("bulk".equalsIgnoreCase(buttonName) && btnBulkCreate != null) {
+            btnBulkCreate.setEnabled(enabled);
         }
     }
 
@@ -208,8 +265,32 @@ public class SchedulePanel extends BasePanel<Schedule> {
         titleBox.add(Box.createVerticalStrut(4));
         titleBox.add(hintLabel);
 
+        JPanel rightActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        rightActions.setOpaque(false);
+
+        JLabel filterLabel = new JLabel("Lớp:");
+        filterLabel.setFont(UIUtils.DEFAULT_FONT.deriveFont(Font.BOLD, 13f));
+        classFilterCombo.setPreferredSize(new Dimension(290, 34));
+        classFilterCombo.addActionListener(e -> {
+            updateFilteredSchedules();
+            renderTimetable();
+        });
+
+        JButton clearFilterButton = UIUtils.createSecondaryButton("Bỏ lọc");
+        clearFilterButton.setPreferredSize(new Dimension(86, 34));
+        clearFilterButton.addActionListener(e -> {
+            if (classFilterCombo.getItemCount() > 0) {
+                classFilterCombo.setSelectedIndex(0);
+            }
+        });
+
+        rightActions.add(filterLabel);
+        rightActions.add(classFilterCombo);
+        rightActions.add(clearFilterButton);
+
         navigation.add(leftActions, BorderLayout.WEST);
         navigation.add(titleBox, BorderLayout.CENTER);
+        navigation.add(rightActions, BorderLayout.EAST);
 
         timetableGrid.setOpaque(false);
 
@@ -237,6 +318,8 @@ public class SchedulePanel extends BasePanel<Schedule> {
     }
 
     private void renderTimetable() {
+        updateFilteredSchedules();
+
         LocalDate weekStart = weekReference.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         LocalDate weekEnd = weekStart.plusDays(6);
         weekLabel.setText("Lich hoc tuan " + DATE_FORMAT.format(weekStart) + " - " + DATE_FORMAT.format(weekEnd));
@@ -338,7 +421,7 @@ public class SchedulePanel extends BasePanel<Schedule> {
     }
 
     private List<Schedule> getSchedulesForCell(LocalDate day, TimeSlot slot) {
-        return currentSchedules.stream()
+        return filteredSchedules.stream()
                 .filter(schedule -> day.equals(schedule.getStudyDate()))
                 .filter(schedule -> TimeSlot.from(schedule) == slot)
                 .sorted(Comparator.comparing(Schedule::getStartTime, Comparator.nullsLast(Comparator.naturalOrder())))
@@ -431,8 +514,73 @@ public class SchedulePanel extends BasePanel<Schedule> {
                 ? selectedSchedule.getClassEntity().getTeacher().getFullName()
                 : "Chua phan cong";
 
-        detailLabel.setText("Dang chon: " + className + " | " + DATE_FORMAT.format(selectedSchedule.getStudyDate())
+        String studyDate = selectedSchedule.getStudyDate() != null
+                ? DATE_FORMAT.format(selectedSchedule.getStudyDate())
+                : "Chua xac dinh";
+
+        detailLabel.setText("Dang chon: " + className + " | " + studyDate
                 + " | " + formatTimeRange(selectedSchedule) + " | Phong " + roomName + " | GV: " + teacherName);
+    }
+
+    private void refreshClassFilterOptions() {
+        ClassFilterOption currentSelection = (ClassFilterOption) classFilterCombo.getSelectedItem();
+        Long selectedClassId = currentSelection != null ? currentSelection.classId : 0L;
+
+        Map<Long, ClassFilterOption> options = new LinkedHashMap<>();
+        options.put(0L, new ClassFilterOption(0L, ALL_CLASSES));
+
+        currentSchedules.stream()
+                .filter(item -> item.getClassEntity() != null)
+                .sorted(Comparator
+                        .comparing((Schedule s) -> s.getClassEntity().getClassName(), Comparator.nullsLast(String::compareToIgnoreCase))
+                        .thenComparing(s -> s.getClassEntity().getId()))
+                .forEach(item -> {
+                    Long classId = item.getClassEntity().getId();
+                    options.putIfAbsent(classId, new ClassFilterOption(classId, buildClassLabel(item)));
+                });
+
+        classFilterCombo.removeAllItems();
+        options.values().forEach(classFilterCombo::addItem);
+
+        int indexToSelect = 0;
+        for (int i = 0; i < classFilterCombo.getItemCount(); i++) {
+            ClassFilterOption option = classFilterCombo.getItemAt(i);
+            if (option != null && option.classId.equals(selectedClassId)) {
+                indexToSelect = i;
+                break;
+            }
+        }
+        classFilterCombo.setSelectedIndex(indexToSelect);
+    }
+
+    private void updateFilteredSchedules() {
+        ClassFilterOption selected = (ClassFilterOption) classFilterCombo.getSelectedItem();
+        Long selectedClassId = selected != null ? selected.classId : 0L;
+
+        filteredSchedules = currentSchedules.stream()
+                .filter(item -> selectedClassId == 0L
+                        || (item.getClassEntity() != null && item.getClassEntity().getId() == selectedClassId))
+                .toList();
+
+        if (selectedSchedule != null) {
+            boolean existsInFilter = filteredSchedules.stream().anyMatch(item -> item.getId() == selectedSchedule.getId());
+            if (!existsInFilter) {
+                selectedSchedule = null;
+            }
+        }
+    }
+
+    private String buildClassLabel(Schedule schedule) {
+        if (schedule.getClassEntity() == null) {
+            return "#? - Chua xac dinh";
+        }
+        String className = schedule.getClassEntity().getClassName() != null
+                ? schedule.getClassEntity().getClassName()
+                : "Chua xac dinh";
+        String courseName = schedule.getClassEntity().getCourse() != null && schedule.getClassEntity().getCourse().getCourseName() != null
+                ? schedule.getClassEntity().getCourse().getCourseName()
+                : "Chua xac dinh";
+        return "#" + schedule.getClassEntity().getId() + " - " + className + " | " + courseName;
     }
 
     private String formatTimeRange(Schedule schedule) {
@@ -472,6 +620,21 @@ public class SchedulePanel extends BasePanel<Schedule> {
                 return AFTERNOON;
             }
             return EVENING;
+        }
+    }
+
+    private static class ClassFilterOption {
+        private final Long classId;
+        private final String label;
+
+        private ClassFilterOption(Long classId, String label) {
+            this.classId = classId;
+            this.label = label;
+        }
+
+        @Override
+        public String toString() {
+            return label;
         }
     }
 }

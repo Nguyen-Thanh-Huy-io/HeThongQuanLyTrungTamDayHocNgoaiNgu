@@ -59,9 +59,11 @@ public class ScheduleDialog extends JDialog {
             classComboBox.setRenderer(new ClassRenderer());
             JComboBox<Room> roomComboBox = new JComboBox<>(rooms.toArray(new Room[0]));
             roomComboBox.setRenderer(new RoomRenderer());
-            JTextField dateField = new JTextField(20);
-            JTextField startTimeField = new JTextField(20);
-            JTextField endTimeField = new JTextField(20);
+            DatePickerField datePicker   = new DatePickerField(LocalDate.now());
+            JTextField startTimeField = new JTextField(10);
+            JTextField endTimeField   = new JTextField(10);
+            startTimeField.setToolTipText("Định dạng HH:mm, ví dụ 08:00");
+            endTimeField  .setToolTipText("Định dạng HH:mm, ví dụ 10:00");
 
             if (preselectedClass != null) {
                 selectClass(classComboBox, preselectedClass.getId());
@@ -73,13 +75,13 @@ public class ScheduleDialog extends JDialog {
             if (existingSchedule != null) {
                 selectClass(classComboBox, existingSchedule.getClassEntity() != null ? existingSchedule.getClassEntity().getId() : 0L);
                 selectRoom(roomComboBox, existingSchedule.getRoom() != null ? existingSchedule.getRoom().getId() : 0L);
-                dateField.setText(existingSchedule.getStudyDate() != null ? existingSchedule.getStudyDate().toString() : "");
+                if (existingSchedule.getStudyDate() != null) datePicker.setValue(existingSchedule.getStudyDate());
                 startTimeField.setText(existingSchedule.getStartTime() != null ? existingSchedule.getStartTime().toString() : "");
-                endTimeField.setText(existingSchedule.getEndTime() != null ? existingSchedule.getEndTime().toString() : "");
+                endTimeField  .setText(existingSchedule.getEndTime()   != null ? existingSchedule.getEndTime().toString()   : "");
             } else {
                 ClassEntity selectedClass = (ClassEntity) classComboBox.getSelectedItem();
-                if (selectedClass != null) {
-                    dateField.setText(selectedClass.getStartDate() != null ? selectedClass.getStartDate().toString() : "");
+                if (selectedClass != null && selectedClass.getStartDate() != null) {
+                    datePicker.setValue(selectedClass.getStartDate());
                 }
             }
 
@@ -101,9 +103,9 @@ public class ScheduleDialog extends JDialog {
             form.add(roomComboBox, gbc);
             gbc.gridx = 0;
             gbc.gridy++;
-            form.add(new JLabel("Ngày học (yyyy-MM-dd):"), gbc);
+            form.add(new JLabel("Ngày học:"), gbc);
             gbc.gridx = 1;
-            form.add(dateField, gbc);
+            form.add(datePicker, gbc);
             gbc.gridx = 0;
             gbc.gridy++;
             form.add(new JLabel("Giờ bắt đầu (HH:mm):"), gbc);
@@ -132,9 +134,9 @@ public class ScheduleDialog extends JDialog {
                 throw new Exception("Vui lòng chọn lớp học và phòng học.");
             }
 
-            LocalDate studyDate = LocalDate.parse(dateField.getText().trim());
+            LocalDate studyDate = datePicker.getValue();
             LocalTime startTime = LocalTime.parse(normalizeTime(startTimeField.getText()));
-            LocalTime endTime = LocalTime.parse(normalizeTime(endTimeField.getText()));
+            LocalTime endTime   = LocalTime.parse(normalizeTime(endTimeField.getText()));
             if (!startTime.isBefore(endTime)) {
                 throw new Exception("Giờ bắt đầu phải trước giờ kết thúc.");
             }

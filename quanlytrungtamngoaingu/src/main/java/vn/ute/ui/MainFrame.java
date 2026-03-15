@@ -249,13 +249,11 @@ public class MainFrame extends JFrame {
         }
 
         try {
-            GenericPanel<Attendance> attendancePanel = new GenericPanel<>(Attendance.class, new AttendanceTableModel(),
+            AttendancePanel attendancePanel = new AttendancePanel(
                 () -> {
                     try {
                         if (sessionManager.isStudent()) {
-                            Long studentId = sessionManager.getCurrentStudentId();
-                            if (studentId == null) return Collections.emptyList();
-                            return sm.getAttendanceService().getHistoryByStudent(studentId);
+                            return loadAttendancesForCurrentStudent();
                         }
                         if (sessionManager.isTeacher()) {
                             return loadAttendancesForCurrentTeacher();
@@ -635,10 +633,27 @@ public class MainFrame extends JFrame {
                 .filter(attendance -> attendance.getClassEntity() != null)
                 .filter(attendance -> classIds.contains(attendance.getClassEntity().getId()))
                 .sorted(Comparator
-                        .comparing(Attendance::getAttendDate)
-                        .thenComparing(attendance -> attendance.getClassEntity().getClassName(), Comparator.nullsLast(String::compareToIgnoreCase)))
+                .comparing(Attendance::getAttendDate, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(attendance -> attendance.getClassEntity().getClassName(), Comparator.nullsLast(String::compareToIgnoreCase))
+                .thenComparing(attendance -> attendance.getStudent() != null ? attendance.getStudent().getFullName() : null,
+                    Comparator.nullsLast(String::compareToIgnoreCase)))
                 .toList();
     }
+
+        private List<Attendance> loadAttendancesForCurrentStudent() throws Exception {
+        Long studentId = sessionManager.getCurrentStudentId();
+        if (studentId == null) {
+            return Collections.emptyList();
+        }
+
+        List<Attendance> attendances = sm.getAttendanceService().getHistoryByStudent(studentId);
+        return attendances.stream()
+            .filter(attendance -> attendance.getClassEntity() != null)
+            .sorted(Comparator
+                .comparing(Attendance::getAttendDate, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(attendance -> attendance.getClassEntity().getClassName(), Comparator.nullsLast(String::compareToIgnoreCase)))
+            .toList();
+        }
 
     private List<Result> loadResultsForCurrentTeacher() throws Exception {
         Set<Long> classIds = loadTeacherClassIds();

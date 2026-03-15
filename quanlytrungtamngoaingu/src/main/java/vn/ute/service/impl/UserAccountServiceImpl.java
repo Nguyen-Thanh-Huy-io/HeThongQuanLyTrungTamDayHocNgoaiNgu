@@ -2,6 +2,9 @@ package vn.ute.service.impl;
 
 import jakarta.persistence.EntityManager;
 import vn.ute.db.TransactionManager;
+import vn.ute.model.Staff;
+import vn.ute.model.Student;
+import vn.ute.model.Teacher;
 import vn.ute.model.UserAccount;
 import vn.ute.repo.UserAccountRepository;
 import vn.ute.service.UserAccountService;
@@ -128,8 +131,12 @@ public Optional<UserAccount> authenticate(String username, String password) thro
 
     @Override
     public UserAccount createAccount(String username, String password, UserAccount.UserRole role) throws Exception {
+        return createAccount(username, password, role, null);
+    }
+
+    @Override
+    public UserAccount createAccount(String username, String password, UserAccount.UserRole role, Long linkedEntityId) throws Exception {
         return TransactionManager.executeInTransaction((EntityManager em) -> {
-            // Kiểm tra username đã tồn tại
             if (accountRepo.findByUsername(em, username).isPresent()) {
                 throw new Exception("Tên đăng nhập đã tồn tại!");
             }
@@ -139,6 +146,34 @@ public Optional<UserAccount> authenticate(String username, String password) thro
             account.setPasswordHash(BCrypt.hashpw(password, BCrypt.gensalt()));
             account.setRole(role);
             account.setActive(true);
+
+            // Liên kết với thực thể tương ứng nếu có
+            if (linkedEntityId != null && linkedEntityId > 0) {
+                switch (role) {
+                    case Teacher -> {
+                        Teacher teacher = em.find(Teacher.class, linkedEntityId);
+                        if (teacher == null) {
+                            throw new Exception("Không tìm thấy giáo viên ID=" + linkedEntityId);
+                        }
+                        account.setTeacher(teacher);
+                    }
+                    case Student -> {
+                        Student student = em.find(Student.class, linkedEntityId);
+                        if (student == null) {
+                            throw new Exception("Không tìm thấy học viên ID=" + linkedEntityId);
+                        }
+                        account.setStudent(student);
+                    }
+                    case Staff -> {
+                        Staff staff = em.find(Staff.class, linkedEntityId);
+                        if (staff == null) {
+                            throw new Exception("Không tìm thấy nhân viên ID=" + linkedEntityId);
+                        }
+                        account.setStaff(staff);
+                    }
+                    default -> { /* Admin không cần liên kết */ }
+                }
+            }
 
             accountRepo.insert(em, account);
             return account;
